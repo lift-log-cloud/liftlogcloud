@@ -1,0 +1,5 @@
+flask
+flask-sqlalchemy
+Flask-Migrate
+bcrypt
+python-dotenv

@@ -1,0 +1,476 @@
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session
+from datetime import datetime
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from dotenv import load_dotenv
+import calendar
+import bcrypt
+import os
+
+
+app = Flask(__name__)
+load_dotenv("key.env")
+app.secret_key = os.getenv('SECRET_KEY')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///workouts.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+
+
+class Workout(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    date = db.Column(db.Date, nullable=False)
+    sets = db.Column(db.Integer, nullable=False)
+    reps = db.Column(db.PickleType, nullable=False)
+    extra_weight = db.Column(db.PickleType, nullable=True)
+    is_bodyweight = db.Column(db.Boolean, nullable=False)
+    exercise_id = db.Column(
+        db.Integer,
+        db.ForeignKey('exercise.id', name='fk_workout_exercise_id'),
+        nullable=False
+    )
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id', name='fk_workout_user_id'),
+        nullable=False
+    )
+
+    exercise = db.relationship('Exercise', backref='workout')
+    user = db.relationship('User', backref='workout')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'date': self.date.isoformat(),
+            'sets': self.sets,
+            'reps': self.reps,
+            'extra_weight': self.extra_weight,
+            'is_bodyweight': self.is_bodyweight,
+            'exercise_id': self.exercise_id,
+            'user_id': self.user_id
+        }
+
+
+class Exercise(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id', name='fk_exercise_user_id'),
+        nullable=False
+    )
+    user = db.relationship('User', backref='excercise')
+
+    __table_args__ = (
+        db.UniqueConstraint('name', 'user_id', name='uix_name_user'),
+    )
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "user_id": self.user_id
+        }
+
+
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False)
+    passwordHash = db.Column(db.String(255), nullable=False)
+
+# TODO remove
+
+
+@app.route('/drop_all_tables')
+def drop_all_tables():
+    db.drop_all()
+    return "All tables dropped!"
+
+
+def seedDB():
+    Users = [
+        User(username='user1', passwordHash='p1'),
+        User(username='user2', passwordHash='p2'),
+        User(username='user3', passwordHash='p3'),
+    ]
+
+    for user in Users:
+        existingUser = User.query.filter_by(
+            username=user.username, passwordHash=user.passwordHash).first()
+        if not existingUser:
+            db.session.add(user)
+
+    db.session.commit()
+    usr = User.query.filter_by(username='user1').first()
+    exercises = [
+        Exercise(name='bench press', user_id=usr.id),
+        Exercise(name='squat', user_id=usr.id),
+        Exercise(name='deadlift', user_id=usr.id),
+        Exercise(name='pull-ups', user_id=usr.id),
+        Exercise(name='push-ups', user_id=usr.id),
+        Exercise(name='bicep curls', user_id=usr.id),
+        Exercise(name='tricep dips', user_id=usr.id),
+    ]
+    for ex in exercises:
+        existingEx = Exercise.query.filter_by(
+            name=ex.name, user_id=ex.user_id).first()
+        if not existingEx:
+            db.session.add(ex)
+    db.session.commit()
+    exercs = Exercise.query.filter_by(name='bench press').first()
+
+    workout = Workout(
+        date=datetime.now().date(),
+        sets=3,
+        reps=[10, 10, 10],
+        extra_weight=[0, 0, 0],
+        is_bodyweight=False,
+        exercise_id=exercs.id,
+        user_id=usr.id
+    )
+    existingWorkout = Workout.query.filter_by(
+        date=workout.date, sets=workout.sets, reps=workout.reps, extra_weight=workout.extra_weight,
+        is_bodyweight=workout.is_bodyweight, exercise_id=workout.exercise_id, user_id=workout.user_id).first()
+    if not existingWorkout:
+        db.session.add(workout)
+    db.session.commit()
+
+
+# Helpers
+
+
+def getWorkoutsByDate(date, userid):
+    return Workout.query.filter_by(date=date, user_id=userid).all()
+
+
+def getDaysOfWorkoutInMonth(month, year, userid):
+    first_day_of_month = datetime(year, month, 1)
+    days_in_month = calendar.monthrange(year, month)[1]
+    workouts = Workout.query.filter(
+        Workout.date.between(first_day_of_month, datetime(
+            year, month, days_in_month)),
+        Workout.user_id == userid
+    ).all()
+    workout_days = {workout.date.day for workout in workouts}
+    print(sorted(workout_days))
+    return sorted(workout_days)
+
+
+def workoutconstraintIdtoName(workout):
+    workoutWithNames = workout.__dict__.copy()
+    workoutWithNames['user_id'] = User.query.filter_by(
+        id=workout.user_id).first().username
+    workoutWithNames['exercise_id'] = Exercise.query.filter_by(
+        id=workout.exercise_id).first().name
+    return workoutWithNames
+
+
+def getExerciseIdByName(name, userid):
+    exercise = Exercise.query.filter_by(name=name, user_id=userid).first()
+    if exercise:
+        return exercise.id
+    return None
+
+
+def getWorkoutsByExercise(exercise, userid):
+    return Workout.query.filter_by(exercise_id=exercise.id, user_id=userid).all()
+
+
+def getWorkoutsByExerciseName(exercisename, userid):
+    exercise = Exercise.query.filter_by(
+        name=exercisename, user_id=userid).first()
+    if exercise:
+        return Workout.query.filter_by(exercise_id=exercise.id, user_id=userid).all()
+    return []
+
+
+def getAllWorkouts(userid):
+    return Workout.query.filter_by(user_id=userid).all()
+
+
+def getExercises(userid):
+    exercises = Exercise.query.filter_by(user_id=userid).all()
+    return [exercise.to_dict() for exercise in exercises]
+
+
+def addExercise(exerciseName, userid):
+    existingExercise = Exercise.query.filter_by(
+        name=exerciseName, user_id=userid).first()
+    if not existingExercise:
+        newExercise = Exercise(name=exerciseName, user_id=userid)
+        db.session.add(newExercise)
+        db.session.commit()
+    return Exercise.query.filter_by(name=exerciseName, user_id=userid).first()
+
+
+def getExerciseById(exerciseId, userid):
+    return Exercise.query.filter_by(id=exerciseId, user_id=userid).first()
+
+
+def addWorkout(workout):
+    existingWorkout = Workout.query.filter_by(
+        date=workout.date,
+        sets=workout.sets,
+        reps=workout.reps,
+        extra_weight=workout.extra_weight,
+        is_bodyweight=workout.is_bodyweight,
+        exercise_id=workout.exercise_id,
+        user_id=workout.user_id,
+    ).first()
+    if not existingWorkout:
+        db.session.add(workout)
+        db.session.commit()
+    return Workout.query.filter_by(
+        date=workout.date,
+        sets=workout.sets,
+        reps=workout.reps,
+        extra_weight=workout.extra_weight,
+        is_bodyweight=workout.is_bodyweight,
+        exercise_id=workout.exercise_id,
+        user_id=workout.user_id,
+    ).first()
+
+
+def addUser(username, passwordHash):
+    existingUser = User.query.filter_by(username=username).first()
+    if not existingUser:
+        newUser = User(username=username, passwordHash=passwordHash)
+        db.session.add(newUser)
+        db.session.commit()
+
+    return User.query.filter_by(username=username).first()
+
+
+def getUser(username):
+    return User.query.filter_by(username=username).first()
+
+
+def seedExercises(userid):
+    exercises = [
+        Exercise(name='bench press', user_id=userid),
+        Exercise(name='squat', user_id=userid),
+        Exercise(name='deadlift', user_id=userid),
+        Exercise(name='pull-ups', user_id=userid),
+        Exercise(name='push-ups', user_id=userid),
+        Exercise(name='skull crushers', user_id=userid)
+    ]
+
+    with db.session.no_autoflush:
+        # Filter out existing exercises from the list before adding
+        exercises_to_add = [ex for ex in exercises if not Exercise.query.filter_by(
+            name=ex.name, user_id=ex.user_id).first()]
+
+        # Add the remaining exercises
+        db.session.add_all(exercises_to_add)
+
+    db.session.commit()
+
+# Routes
+
+
+@app.route('/calendar', methods=['GET'])
+def calendar_redirect():
+    if 'uid' not in session:
+        return redirect(url_for('loginScreen'))
+    current_year = datetime.now().year
+    current_month = datetime.now().month
+    return redirect(url_for('calendar_page', year=current_year, month=current_month))
+
+
+@app.route('/calendarDefault', methods=['GET'])
+def calendarDefault():
+    return calendar_redirect()
+
+
+@app.route('/calendar/<int:year>/<int:month>', methods=['GET'])
+def calendar_page(year, month):
+    if 'uid' not in session:
+        return redirect(url_for('loginScreen'))
+    if (month < 1):
+        return redirect(url_for('calendar_page', year=year-1, month=12))
+    if (month > 12):
+        return redirect(url_for('calendar_page', year=year+1, month=1))
+    current_year = int(year)
+    current_month = int(month)
+
+    first_day_of_month = datetime(current_year, current_month, 1)
+    days_in_month = calendar.monthrange(current_year, current_month)[1]
+    month_days = calendar.monthcalendar(current_year, current_month)
+    workouts = Workout.query.filter(Workout.date.between(
+        first_day_of_month, datetime(current_year, current_month, days_in_month))).all()
+
+    # TODO
+    workouts_by_date = {}
+    for workout in workouts:
+        workouts_by_date.setdefault(workout.date, []).append(workout)
+
+    return render_template('calendar.html', current_year=current_year, current_month=current_month, month_days=month_days, workouts_by_date=workouts_by_date)
+
+
+@app.route('/addExercise', methods=['POST'])
+def add_exercise():
+    if 'uid' not in session:
+        return redirect(url_for('loginScreen'))
+    data = request.get_json()
+    exerciseName = data.get('name')
+    if exerciseName:
+        exercise = Exercise(name=exerciseName, user_id=session['uid'])
+        db.session.add(exercise)
+        db.session.commit()
+        return jsonify({'success': True})
+    return jsonify({'success': False})
+
+
+@app.route('/getAllExercises', methods=['GET'])
+def getAllExercises():
+    exercises = getExercises(session['uid'])
+    return jsonify(exercises)
+
+
+@app.route('/getExercisesInMonth/<int:year>/<int:month>', methods=['GET'])
+def getExercisesInMonth(year, month):
+    days = getDaysOfWorkoutInMonth(month, year, session['uid'])
+    return jsonify(days)
+
+
+@app.route('/addWorkout', methods=['POST'])
+def add_workout():
+    if 'uid' not in session:
+        return redirect(url_for('loginScreen'))
+    data = request.get_json()
+
+    workout = data.get('workout')
+    sets = data.get('sets')
+    reps = data.get('reps', [])
+    weights = data.get('weights', [])
+    is_bodyweight = data.get('isbodyweight', False)
+
+    if not workout or sets is None or not reps or not weights:
+        return "Invalid input", 400
+
+    print(
+        f"Workout: {workout}, Sets: {sets}, Reps: {reps}, Weights: {weights}, Is Bodyweight: {is_bodyweight}")
+
+    #  exercise id, userid
+
+    newWorkout = Workout(
+        date=datetime.now(),
+        sets=sets,
+        reps=reps,
+        extra_weight=weights,
+        is_bodyweight=is_bodyweight,
+        exercise_id=workout,
+        user_id=session['uid']
+    )
+    addWorkout(newWorkout)
+
+    return jsonify({"message": "Workout added successfully"}), 200
+
+
+@app.route('/workout', methods=['GET', 'POST'])
+def workout():
+    if 'uid' not in session:
+        return redirect(url_for('loginScreen'))
+    if request.method == 'POST':
+        # Handle form submission, saving workout data, etc.
+        name = request.form['name']
+        sets = request.form['sets']
+        reps = request.form['reps']
+        extra_weight = request.form['extra_weight']
+        is_bodyweight = request.form.get('is_bodyweight') == 'on'
+        date = request.form['date']
+
+        return redirect(url_for('calendar_page'))
+    else:
+        return render_template('workout.html', exercises=getExercises(session['uid']))
+
+
+@app.route('/workouts/<date>', methods=['GET'])
+def workouts(date):
+    if 'uid' not in session:
+        return redirect(url_for('loginScreen'))
+    selected_date = datetime.strptime(
+        date, '%Y-%m-%d').date().strftime('%d %B %Y')
+    workouts = getWorkoutsByDate(date, session['uid'])
+    return render_template('workoutsInCalendar.html', workouts=workouts, date=selected_date, userid=session['uid'], getExerciseById=getExerciseById)
+
+
+@app.route('/', methods=['GET'])
+def loginScreen():
+    return render_template('login.html')
+
+
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.form.get('username')
+    password = request.form.get('password')
+    action = request.form.get('action')
+
+    if not username or not password:
+        flash("Username and Password are required.", "error")
+        return redirect(url_for('loginScreen'))
+
+    if action == 'login':
+        user = getUser(username)
+        if user:
+            if bcrypt.checkpw(password.encode('utf-8'), user.passwordHash.encode('utf-8')):
+                session['uid'] = user.id
+                session['username'] = user.username
+                flash("Login successful!", "success")
+                return redirect(url_for('workout'))
+            else:
+                flash("Invalid username or password.", "error")
+        else:
+            flash("User not found.", "error")
+
+    elif action == 'register':
+        user = getUser(username)
+        if user:
+            flash("User already exists.", "error")
+        else:
+            passwordHash = bcrypt.hashpw(password.encode(
+                'utf-8'), bcrypt.gensalt()).decode('utf-8')
+            newUserid = addUser(username, passwordHash).id
+            seedExercises(newUserid)
+            flash("User registered successfully!", "success")
+            return redirect(url_for('loginScreen'))
+
+    return redirect(url_for('loginScreen'))
+
+
+@app.route('/logout')
+def logout():
+    session.pop('uid', None)
+    session.pop('username', None)
+    session.pop('_flashes', None)
+    flash("You have been logged out.", "success")
+    return redirect(url_for('loginScreen'))
+
+####################################################################################
+####################################################################################
+######################### ZA IZRIS GRAFOV ##########################################
+####################################################################################
+####################################################################################
+
+
+@app.route('/stats')
+def show_stats():
+    if 'uid' not in session:
+        return redirect(url_for('loginScreen'))
+    return render_template('stats.html')
+
+
+@app.route('/getAllWorkoutsForUser', methods=['GET'])
+def getAllWorkoutsForUser():
+    # Assuming getAllWorkouts is a function that fetches workouts
+    workouts = getAllWorkouts(session['uid'])
+    # Convert each Workout object to a dictionary
+    workouts_serializable = [workout.to_dict() for workout in workouts]
+    return jsonify(workouts_serializable)
+
+
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+        # seedDB()
+    app.run(host='0.0.0.0', port=25565, debug=True)

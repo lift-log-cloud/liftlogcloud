@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<body onload="workoutByMonths()">
+    <div id="vizualizacijaEna" class="vizualizacija" style="width: 100%; height: 45%;">
+        <div class="content" style="width: 100%; height: 100%;">
+            <h2>Število vaj po mesecih</h2>
+            <svg id="workoutsOverMonthsPlatno" width="100%" height="100%"></svg>
+        </div>
+    </div>
+
+    <div id="selectWorkout" style="width: 100%; height: 10%; display: flex; align-items: center;">
+        <div style="display: flex; justify-content: flex-start; align-items: center;">
+            <select id="workouts" onclick="fetchAllWorkouts()" style="width: 150px;">
+                <option value="">Izberi vajo</option>
+            </select>
+            <button id="woMaxButton" onclick="workoutMaxOverTime()">Prikaži</button>
+        </div>
+    </div>
+
+    <div id="vizualizacijaDve" class="vizualizacija" style="width: 100%; height: 45%;">
+        <div class="content" style="width: 100%; height: 100%;">
+            <h2>Največja teža skozi čas</h2>
+            <svg id="visualizationWOMax" width="100%" height="100%"></svg>
+        </div>
+    </div>
+
+
+</body>
+{% endblock %}

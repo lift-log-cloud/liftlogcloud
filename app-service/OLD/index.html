@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FITVIBE</title>
+    <link rel="stylesheet" href="style.css">
+    <script defer src="main.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" />
+
+</head>
+
+<body>
+    <div id="pane-container" class="pane-container"></div>
+    <nav style="position: absolute; bottom: 0; left: 0; right: 0;">
+        <button data-pane="calendar" id="home_button" onclick="selectedButton(1)">
+            <span class="material-symbols-outlined icons">
+                home
+            </span>
+        </button>
+        <button data-pane="workout" id="workout_button" onclick="selectedButton(2)">
+            <span class="material-symbols-outlined icons">
+                add_box
+            </span>
+        </button>
+        <button data-pane="stats" id="chart_button" onclick="selectedButton(3)">
+            <span class="material-symbols-outlined icons">
+                show_chart
+            </span>
+        </button>
+    </nav>
+</body>
+
+</html>

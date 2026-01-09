@@ -1,0 +1,340 @@
+/* use tle je temp */
+/* feel free to change/remove */
+*{
+    font-family: 'Proxima nova', sans-serif;
+}
+
+.hidden {
+    display: none;
+}
+
+.non-selectable {
+    user-select: none;
+    cursor: default;
+  }
+
+.stats-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+}
+
+.stat {
+    background: linear-gradient(145deg, #faf7ff, #d5beff);
+    color: white;
+    border-radius: 15px;
+    padding: 20px;
+    width: 100%;
+    min-width: 200px;
+    text-align: center;
+    box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+html{
+    height: 100%;
+    width: 100%;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    background: radial-gradient(#160040,#10041a);
+    color: white;
+    text-align: center;
+}
+
+h1, h2 {
+    color: #f3e9ff;
+}
+
+button {
+    background: none;
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-size: 16px;
+    padding: 10px 20px;
+    margin: 10px;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background: linear-gradient(145deg, #A677FF, #33166A);
+}
+
+.nav {
+    display: flex;
+    justify-content: space-around;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    padding: 10px 0;
+}
+
+.nav button {
+    flex: 1;
+}
+
+.pane-container {
+    padding: 0.5em;
+    display: flex;
+    flex-direction: column;
+    align-items: center; 
+    justify-content: flex-start; 
+    gap: 20px; 
+    min-height: 92vh; 
+    max-height: 92vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.table {
+    margin: 20px auto;
+    border-collapse: collapse;
+    width: 90%;
+    color: #f3e9ff;
+}
+
+table th, table td {
+    border: 1px solid white;
+    padding: 10px;
+    text-align: center;
+}
+
+table th {
+    background: rgba(255, 255, 255, 0.2);
+}
+table td:hover {
+    background: linear-gradient(145deg, #A677FF, #33166A);
+
+}
+
+.material-symbols-outlined {
+  font-variation-settings:
+  'FILL' 0,
+  'wght' 400,
+  'GRAD' 0,
+  'opsz' 40;
+}
+.icons {
+    font-size: x-large;
+}
+
+.calendar{
+    position: relative;
+    width: 80%;
+    height: 30%;
+}
+
+h1, h2 {
+    color: #f3e9ff;
+}
+
+hr {
+    margin: 20px 0;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.workout-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: linear-gradient(145deg, #faf7ff, #d5beff);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    margin-bottom: 20px;
+    width: 80%;
+}
+
+label {
+    margin-bottom: 10px;
+    color: #17052c;
+    width: 30%;
+}
+
+select, input {
+    background: linear-gradient(45deg, #5b379d, #16004094);
+    border: none;
+    border-radius: 5px;
+    padding: 8px;
+    font-size: 16px;
+    width: 70%;
+    height: 60%;
+    text-align: center;
+    color:#f3e9ff;
+    box-shadow: 1px 2px 3px black;
+}
+
+.exercise-item {
+    color:#faf7ff;
+    background: #5b379d;
+    border: 2px solid #3498db;
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    gap: 10px;
+    width: 100%;
+}
+
+.input_wrapper {
+    width: 70%;
+    display: flex;
+    align-items: center;
+}
+
+
+.btn-decrement, .btn-increment {
+    width: 2em;
+    text-align: center;
+    color: #17052c;
+    padding: 0.2em;
+}
+
+.btn-increment:hover, .btn-decrement:hover {
+    background: #5b379d;
+}
+
+.btn-add {
+    width: 100%;
+    padding: 10px;
+    font-size: 18px;
+    margin-top: 10px;
+    background: linear-gradient(45deg, #5b379d, #16004094);
+    box-shadow: 1px 2px 3px black;
+    transition: background 0.3s;
+}
+.btn-add:hover {
+    background: linear-gradient(45deg, #5b379d, #160040);
+}
+
+.workout-summary {
+    background: linear-gradient(145deg, #faf7ff, #d5beff);
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    color: #10041a
+}
+
+.workout-date {
+    color: #10041a
+
+}
+
+.exercise-list {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+    color:#10041a
+}
+
+.exercise-list li {
+    background: linear-gradient(45deg, #5b379d, #16004094);
+    margin: 5px 0;
+    padding: 10px;
+    border-radius: 10px;
+    color: #f3e9ff;
+}
+
+.exercise-list li:hover {
+    background: linear-gradient(45deg, #5b379d, #160040);
+
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+.previous_workout {
+    background: linear-gradient(145deg, #faf7ff, #d5beff);
+    border-radius: 1em;
+    width: 80%;
+    color:#10041a;
+}
+
+.workout-list-item {
+    display: flex;
+    background: linear-gradient(45deg, #5b379d, #160040);
+    border-radius: 0.5em;
+    margin-bottom: 0.5em;
+    padding: 0.2em 0.5em;
+}
+
+.prev_workout_date{
+    color:#10041a;
+}
+
+.workout-list {
+    display: flex;
+    flex-direction: column;
+    flex-wrap: wrap;
+    padding: 1em;
+}
+
+.workout-item-name {
+    width: 40%;
+    color: #f3e9ff
+}
+.workout-item-stats {
+    width: 20%;
+    color: #f3e9ff
+}
+
+/* Stat dropdown */
+/* Dropdown Button */
+.dropbtn {
+    background-color: #04AA6D;
+    color: white;
+    padding: 16px;
+    font-size: 16px;
+    border: none;
+  }
+  
+  /* The container <div> - needed to position the dropdown content */
+  .dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  
+  /* Dropdown Content (Hidden by Default) */
+  .dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #f1f1f1;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+  }
+  
+  /* Links inside the dropdown */
+  .dropdown-content a {
+    color: black;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+  }
+  
+  /* Change color of dropdown links on hover */
+  .dropdown-content a:hover {background-color: #ddd;}
+  
+  /* Show the dropdown menu on hover */
+  .dropdown:hover .dropdown-content {display: block;}
+  
+  /* Change the background color of the dropdown button when the dropdown content is shown */
+  .dropdown:hover .dropbtn {background-color: #3e8e41;}

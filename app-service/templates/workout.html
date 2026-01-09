@@ -1,0 +1,226 @@
+{% extends 'base.html' %}
+
+{% block title %}Add Workout{% endblock %}
+
+{% block content %}
+<h1>Add Workout</h1>
+<!-- <form method="POST" action="{{ url_for('workout') }}">-->
+<div class="workout-form">
+    <div class="input-group-main">
+        <div class="input_wrapper">
+            <select id="exercise" style="width: auto;margin: 0">
+                {% for exercise in exercises %}
+                <option value="{{ exercise.id }}" class="exercise-item">{{ exercise.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button class="btn-add-workout btn-decrement" onclick="openPopup()">New Exercise</button>
+        <div class="popup-overlay" id="popup-overlay">
+            <div class="popup">
+                <button class="close-btn" onclick="closePopup()">x</button>
+                <h2>Add new Exercise</h2>
+                <div class="input_wrapper">
+                    <input type="text" id="new-workout-name" placeholder="Ime vaje">
+                    <button onclick="btn_add_workout(); closePopup();">OK</button>
+                </div>
+            </div>
+        </div>
+        <div class="popup-overlay" id="popup-overlay2">
+            <div class="popup">
+                <h2>Workout added to Calendar</h2>
+                <button onclick="closePopup2();">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label for="sets">Number of sets:</label>
+        <div class="input_wrapper" style="display: flex; flex-direction: column;">
+            <div class="input_wrapper">
+                <button class="btn-decrement"
+                    onclick="document.getElementById('sets').value = Math.max(1,(document.getElementById('sets').value) - 1);setKgRepsBySets(document.getElementById('sets').value)">−</button>
+                <input id="sets" type="number" value="1" min="1" onchange="setKgRepsBySets(this.value)">
+                <button class="btn-increment"
+                    onclick="document.getElementById('sets').value = parseInt(document.getElementById('sets').value) + 1;setKgRepsBySets(document.getElementById('sets').value)">+</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label for="reps">Number of reps:</label>
+        <div class="input_wrapper" id="repCol" style="display: flex; flex-direction: column;">
+            <div class="input_wrapper">
+                <button class="btn-decrement"
+                    onclick="document.getElementById('reps0').value = Math.max(1,parseInt(document.getElementById('reps0').value) - 1)">−</button>
+                <input id="reps0" type="number" value="1" min="1">
+                <button class="btn-increment"
+                    onclick="document.getElementById('reps0').value = parseInt(document.getElementById('reps0').value) + 1">+</button>
+            </div>
+        </div>
+
+    </div>
+
+    <div class="input-group">
+        <label for="weight">Weight:</label>
+        <div class="input_wrapper" id="weightCol" style="display: flex; flex-direction: column;">
+            <div class="input_wrapper">
+                <button class="btn-decrement"
+                    onclick="document.getElementById('weight0').value = Math.max(0,parseInt(document.getElementById('weight0').value) - 1)">−</button>
+                <input id="weight0" type="number" value="0" min="0">
+                <button class="btn-increment"
+                    onclick="document.getElementById('weight0').value = parseInt(document.getElementById('weight0').value) + 1">+</button>
+            </div>
+        </div>
+
+    </div>
+
+
+    <button class="btn-add" onclick="addWorkout(); openPopup2()">Done!</button>
+
+</div>
+<!--     </form>-->
+
+<script>
+
+    function openPopup()
+    {
+        document.getElementById('popup-overlay').style.display = 'flex';
+    }
+    function openPopup2()
+    {
+        document.getElementById('popup-overlay2').style.display = 'flex';
+    }
+
+    function closePopup()
+    {
+        document.getElementById('popup-overlay').style.display = 'none';
+    }
+    function closePopup2()
+    {
+        document.getElementById('popup-overlay2').style.display = 'none';
+        location.reload();
+    }
+
+    function addWorkout()
+    {
+        var workout = document.getElementById('exercise').value;
+        var reps = [];
+        var weights = [];
+        var children = repCol.children;
+
+        for (var i = 0; i < children.length; i++)
+        {
+            reps.push(parseInt(children[i].querySelector('input').value) || 0);
+            weights.push(parseFloat(weightCol.children[i].querySelector('input').value) || 0);
+        }
+
+        var sets = children.length; // Number of sets equals the number of rows
+
+        fetch("/addWorkout", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                workout: workout,
+                sets: sets,
+                reps: reps,
+                weights: weights,
+                isbodyweight: false
+            })
+        })
+            .then(response => response.text())
+            .then(data => console.log(data))
+            .catch(err => console.error("Error adding workout:", err));
+    }
+
+    function btn_add_workout()
+    {
+        const inputField = document.getElementById("new-workout-name");
+
+        var workoutname = inputField.value.trim();
+
+        if (workoutname.length > 0)
+        {
+            fetch("/addExercise", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    name: workoutname
+                })
+            })
+                .then(response => response.text())
+                .then(data =>
+                {
+                    console.log(data);
+                    reloadExerciseDropdown();
+                })
+                .catch(err => console.error("Error adding exercise:", err));
+            inputField.value = "";
+            closePopup();
+        } else
+        {
+            alert("Prosimo vnesite ime vaje.");
+            inputField.focus();
+        }
+    }
+    function reloadExerciseDropdown()
+    {
+        fetch('/getAllExercises')
+            .then(response => response.json())
+            .then(exercises =>
+            {
+                const dropdown = document.getElementById('exercise');
+                dropdown.innerHTML = '';
+                exercises.forEach(exercise =>
+                {
+                    const option = document.createElement('option');
+                    option.value = exercise.id;
+                    option.textContent = exercise.name;
+                    dropdown.appendChild(option);
+                });
+            })
+            .catch(error =>
+            {
+                console.error('Error loading exercises:', error);
+            });
+    }
+
+    function setKgRepsBySets(sets)
+    {
+        var childCount = weightCol.childElementCount;
+        if (sets == childCount) return;
+        if (sets < childCount)
+        {
+            for (var i = childCount; i > sets; i--)
+            {
+                weightCol.removeChild(weightCol.lastElementChild);
+                repCol.removeChild(repCol.lastElementChild);
+            }
+        }
+        for (var i = childCount; i < sets; i++)
+        {
+            var idReps = "reps" + i;
+            var idWeight = "weight" + i;
+
+            var repsWrapper = document.createElement("div");
+            repsWrapper.className = "input_wrapper";
+            repsWrapper.innerHTML = `
+      <button class="btn-decrement" onclick="document.getElementById('${idReps}').value = Math.max(1, parseInt(document.getElementById('${idReps}').value) - 1)">−</button>
+      <input id="${idReps}" type="number" value="1" min="1">
+      <button class="btn-increment" onclick="document.getElementById('${idReps}').value = parseInt(document.getElementById('${idReps}').value) + 1">+</button>`;
+
+            var weightWrapper = document.createElement("div");
+            weightWrapper.className = "input_wrapper";
+            weightWrapper.innerHTML = `
+      <button class="btn-decrement" onclick="document.getElementById('${idWeight}').value = Math.max(0, parseInt(document.getElementById('${idWeight}').value) - 1)">−</button>
+      <input id="${idWeight}" type="number" value="0" min="0">
+      <button class="btn-increment" onclick="document.getElementById('${idWeight}').value = parseInt(document.getElementById('${idWeight}').value) + 1">+</button>`;
+            repCol.appendChild(repsWrapper);
+            weightCol.appendChild(weightWrapper);
+        }
+    }
+</script>
+{% endblock %}

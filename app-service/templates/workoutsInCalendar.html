@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Workouts on {{date}}</h1>
+<div class="workouts">
+    {% for workout in workouts %}
+    <div class="workout-day-container">
+        <p><span>Exercise:</span> {{ getExerciseById(workout.exercise_id, userid).name }}</p>
+        <p><span>Sets:</span> {{ workout.sets }}</p>
+        <p><span>Reps:</span> {{ workout.reps }}</p>
+        <p><span>Weight:</span> {{ workout.extra_weight }}</p>
+        <!-- <p><span>Bodyweight exercise:</span> {{ workout.is_bodyweight }}</p> -->
+    </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

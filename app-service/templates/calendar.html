@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Calendar</h1>
+<h2>{{ current_month }} - {{ current_year }}</h2>
+<div id="calendar-data" data-year="{{ current_year }}" data-month="{{ current_month }}"></div>
+
+<table class="calendar rounded-corners">
+    <thead>
+        <tr>
+            <th style="padding: 15px;">Mon</th>
+            <th style="padding: 15px;">Tue</th>
+            <th style="padding: 15px;">Wed</th>
+            <th style="padding: 15px;">Thu</th>
+            <th style="padding: 15px;">Fri</th>
+            <th style="padding: 15px;">Sat</th>
+            <th style="padding: 15px;">Sun</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for week in month_days %}
+        <tr>
+            {% for day in week %}
+            {% if day != 0 %}
+            <td class="calendar-day calendar-cell">
+                <a href="{{ url_for('workouts', date=current_year ~ '-' ~ '%02d' % current_month ~ '-' ~ '%02d' % day) }}"
+                    style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; text-decoration: none; color: inherit; padding: 0; margin: 0;">
+                    {{ day }}
+                </a>
+            </td>
+            {% else %}
+            <td class="calendar-day empty"></td>
+            {% endif %}
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<div class="calendar-navigation">
+    <a href="{{ url_for('calendar_page', year=current_year, month=current_month - 1) }}">Previous Month</a>
+    <a href="{{ url_for('calendar_page', year=current_year, month=current_month + 1) }}">Next Month</a>
+</div>
+
+<script>
+    colorDays();
+    function colorDays()
+    {
+        // Retrieve year and month from the hidden element's data attributes
+        const calendarData = document.getElementById('calendar-data');
+        const currentYear = calendarData.dataset.year;
+        const currentMonth = calendarData.dataset.month;
+
+        fetch(`/getExercisesInMonth/${currentYear}/${currentMonth}`)
+            .then(response => response.json())
+            .then(data =>
+            {
+                console.log(data);
+                const days = document.querySelectorAll('.calendar-day');
+                for (const day of days)
+                {
+                    if (data.includes(parseInt(day.textContent)))
+                    {
+                        // TODO
+                        // dark green? or complementary orange?
+                        day.style.backgroundColor = '#d0dbd1';
+                        // day.style.backgroundColor = '#0c2b21';
+                        // day.style.backgroundColor = '#F26641';
+                    }
+                }
+            })
+            .catch(err => console.error("Error getting exercises in month:", err));
+    }
+</script>
+{% endblock %}

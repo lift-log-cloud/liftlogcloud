@@ -1,0 +1,11 @@
+#run this in the python shell for a secret key, then add it to key.env 
+import secrets
+print(secrets.token_hex(16))
+
+
+#example key: 
+#abc123
+
+#example key.env:
+#SECRET_KEY=31cf7b3e8f26fe8690b1635c33becdfc
+
