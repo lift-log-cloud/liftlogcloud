@@ -3,16 +3,26 @@ from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from dotenv import load_dotenv
+import requests
 import calendar
 import bcrypt
 import os
+
+STATS_SERVICE_URL = os.getenv("STATS_SERVICE_URL", "http://stats:5000")
 
 
 app = Flask(__name__)
 load_dotenv("key.env")
 app.secret_key = os.getenv('SECRET_KEY')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///workouts.db'
+
+db_url = os.getenv("DATABASE_URL", "sqlite:///workouts.db")
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = db_url
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 
@@ -268,6 +278,24 @@ def seedExercises(userid):
 # Routes
 
 
+@app.route("/statsSummary", methods=["GET"])
+def stats_summary():
+    if "uid" not in session:
+        return redirect(url_for("loginScreen"))
+
+    r = requests.get(
+        f"{STATS_SERVICE_URL}/stats/summary",
+        params={"user_id": session["uid"]},
+        timeout=5
+    )
+    return jsonify(r.json()), r.status_code
+
+
+@app.route("/health")
+def health():
+    return jsonify({"status": "UP"}), 200
+
+
 @app.route('/calendar', methods=['GET'])
 def calendar_redirect():
     if 'uid' not in session:
@@ -470,7 +498,7 @@ def getAllWorkoutsForUser():
 
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        # seedDB()
+    # with app.app_context():
+    #     db.create_all()
+    # seedDB()
     app.run(host='0.0.0.0', port=25565, debug=True)
