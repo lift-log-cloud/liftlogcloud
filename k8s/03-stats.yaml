@@ -59,14 +59,12 @@ kind: Service
 metadata:
   name: stats
   namespace: liftlog
-  annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/path: "/metrics"
-    prometheus.io/port: "5000"
-
+  labels:
+    app: stats
 spec:
   selector:
     app: stats
   ports:
-  - port: 5000
+  - name: http
+    port: 5000
     targetPort: 5000

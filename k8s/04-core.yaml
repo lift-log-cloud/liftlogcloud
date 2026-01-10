@@ -62,11 +62,8 @@ kind: Service
 metadata:
   name: core
   namespace: liftlog
-  annotations:
-    prometheus.io/scrape: "true"
-    prometheus.io/path: "/metrics"
-    prometheus.io/port: "25590"
-
+  labels:
+    app: core
 spec:
   type: LoadBalancer
   selector:
