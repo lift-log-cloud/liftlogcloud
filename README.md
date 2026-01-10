@@ -136,7 +136,15 @@ Swagger UI Endpoints
 | Core    | `/apidocs/` |
 | Stats   | `/apidocs/` |
 
-*Note: API documentation for the stats microservice is available only via **internal access** on port `5001`. This port is not forwarded, so external access is **unavailable**.*
+**Note:**  
+API documentation for the **stats microservice** is exposed **only internally** within the Kubernetes cluster.  
+To access the Swagger UI for the stats service, a **port-forward** must be created:
+
+```bash
+kubectl -n liftlog port-forward svc/stats 5001:5000 --address 0.0.0.0
+```
+This is not permenant, its a debug/admin tool.
+
 
 The documentation includes:
 - Endpoint descriptions
