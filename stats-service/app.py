@@ -1,9 +1,33 @@
-from flask import Flask, jsonify, request
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+from flask import Flask, jsonify, request, Response
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 from flasgger import Swagger
 import requests
+import time
 import os
+
+
+REQUEST_COUNT = Counter(
+    "http_requests_total",
+    "Total HTTP requests",
+    ["service", "method", "endpoint", "http_status"]
+)
+
+REQUEST_LATENCY = Histogram(
+    "http_request_duration_seconds",
+    "HTTP request latency (seconds)",
+    ["service", "method", "endpoint"]
+)
+
+IN_PROGRESS = Gauge(
+    "http_requests_in_progress",
+    "In-progress HTTP requests",
+    ["service"]
+)
+
+SERVICE_NAME = os.getenv("SERVICE_NAME", "stats")
+
 
 app = Flask(__name__)
 
@@ -54,6 +78,35 @@ class Exercise(db.Model):
 
 TIMEZONEDB_API_KEY = os.getenv("TIMEZONEDB_API_KEY")
 DEFAULT_TZ = os.getenv("DEFAULT_TZ", "Europe/Ljubljana")
+
+
+# helpers
+
+@app.before_request
+def metrics_before():
+    IN_PROGRESS.labels(SERVICE_NAME).inc()
+    request._start_time = time.time()
+
+
+@app.after_request
+def metrics_after(response):
+    try:
+        elapsed = time.time() - getattr(request, "_start_time", time.time())
+        endpoint = request.path
+        REQUEST_LATENCY.labels(
+            SERVICE_NAME, request.method, endpoint).observe(elapsed)
+        REQUEST_COUNT.labels(SERVICE_NAME, request.method,
+                             endpoint, str(response.status_code)).inc()
+    finally:
+        IN_PROGRESS.labels(SERVICE_NAME).dec()
+    return response
+
+
+# routes
+
+@app.get("/metrics")
+def metrics():
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 
 @app.get("/external/time")

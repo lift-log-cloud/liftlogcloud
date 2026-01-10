@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session, Response
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 from tenacity import retry, retry_if_exception_type, wait_exponential, stop_after_attempt
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -9,7 +10,29 @@ import pybreaker
 import requests
 import calendar
 import bcrypt
+import time
 import os
+
+REQUEST_COUNT = Counter(
+    "http_requests_total",
+    "Total HTTP requests",
+    ["service", "method", "endpoint", "http_status"]
+)
+
+REQUEST_LATENCY = Histogram(
+    "http_request_duration_seconds",
+    "HTTP request latency (seconds)",
+    ["service", "method", "endpoint"]
+)
+
+IN_PROGRESS = Gauge(
+    "http_requests_in_progress",
+    "In-progress HTTP requests",
+    ["service"]
+)
+
+SERVICE_NAME = os.getenv("SERVICE_NAME", "core")
+
 
 STATS_SERVICE_URL = os.getenv("STATS_SERVICE_URL", "http://stats:5000")
 
@@ -167,6 +190,25 @@ def seedDB():
 
 
 # Helpers
+
+@app.before_request
+def metrics_before():
+    IN_PROGRESS.labels(SERVICE_NAME).inc()
+    request._start_time = time.time()
+
+
+@app.after_request
+def metrics_after(response):
+    try:
+        elapsed = time.time() - getattr(request, "_start_time", time.time())
+        endpoint = request.path
+        REQUEST_LATENCY.labels(
+            SERVICE_NAME, request.method, endpoint).observe(elapsed)
+        REQUEST_COUNT.labels(SERVICE_NAME, request.method,
+                             endpoint, str(response.status_code)).inc()
+    finally:
+        IN_PROGRESS.labels(SERVICE_NAME).dec()
+    return response
 
 
 def getWorkoutsByDate(date, userid):
@@ -331,6 +373,11 @@ def stats_get_with_breaker(path, params=None, fallback=None):
         return (fallback or {"status": "DEGRADED", "error": f"stats-service unavailable ({type(e).__name__})"}), 503
 
 # Routes
+
+
+@app.get("/metrics")
+def metrics():
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 
 @app.get("/resilience")
