@@ -4,10 +4,10 @@ Cloud-native fitness tracking app
 ## Repo Branching Strategy
 
 The project uses a simple branching strategy:
-- **main** – stable branch containing production-ready code
+- **master** – stable branch containing production-ready code
 - **dev** – development branch used for ongoing development and experimentation
 
-New features and changes are implemented in the `dev` branch and merged into `main` once they are stable.
+New features and changes are implemented in the `dev` branch and merged into `master` once they are stable.
 
 
 ## 1. Overview
