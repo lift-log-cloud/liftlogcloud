@@ -26,6 +26,7 @@
             <a href="{{ url_for('show_stats') }}">Stats</a>
             <button id="logout" onclick="Logout()">Logout</button>
         </div>
+        <div id="navTime"></div>
     </div>
 
     <div class="content" style="display: flex; flex-direction: column; justify-content: center; align-items: center;">
@@ -35,6 +36,33 @@
 
 </body>
 <script>
+    async function loadNavTime()
+    {
+        const el = document.getElementById("navTime");
+        if (!el) return;
+
+        try
+        {
+            const r = await fetch("/api/time", { cache: "no-store" });
+            const d = await r.json();
+
+            const timeStr = d.formatted || d.datetime || "";
+            const src = d.source ? ` (${d.source})` : "";
+
+            el.textContent = `${timeStr} ${src}`;
+        } catch (e)
+        {
+            el.textContent = "";
+        }
+    }
+
+    document.addEventListener("DOMContentLoaded", () =>
+    {
+        loadNavTime();
+        // refresh every 60s
+        setInterval(loadNavTime, 60_000);
+    });
+
     function toggleMenu()
     {
         const menu = document.querySelector('.menu');
@@ -97,54 +125,62 @@
     */
 
     // Dobimo vsa imena vaj za dropdown selector
-    async function fetchAllWorkouts() {
-    try {
-        // Pošljemo zahtevo na "/getAllExercises"
-        const response = await fetch('/getAllExercises');
-        const data = await response.json();
-        //console.log('Fetched data:', data); // Izpiše celoten JSON odgovor
-        
-        const sortedData = sortAlphabetically(data.map(exercise => exercise.name)); // Razvrsti imena vaj
-        const dropdown = document.getElementById("workouts");
+    async function fetchAllWorkouts()
+    {
+        try
+        {
+            // Pošljemo zahtevo na "/getAllExercises"
+            const response = await fetch('/getAllExercises');
+            const data = await response.json();
+            //console.log('Fetched data:', data); // Izpiše celoten JSON odgovor
+
+            const sortedData = sortAlphabetically(data.map(exercise => exercise.name)); // Razvrsti imena vaj
+            const dropdown = document.getElementById("workouts");
 
 
 
-        // Preverimo, če so že bili podatki naloženi
-        if (dropdown.childElementCount === 1) {  // Če ni nobenih možnosti (samo privzeta)
+            // Preverimo, če so že bili podatki naloženi
+            if (dropdown.childElementCount === 1)
+            {  // Če ni nobenih možnosti (samo privzeta)
 
-        // Dodaj vse unikatne vaje v dropdown
-        sortedData.forEach(name => {
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = name;
-        dropdown.appendChild(option);
-        console.log(option);
-        });
-        }   
-
-
-        // Prikažemo podatke v elementu z ID-jem "test"
-        const testElement = document.getElementById("test");
-        testElement.innerText = JSON.stringify(data, null, 2);
-
-        } catch (error) {
-        console.error("Napaka pri pridobivanju podatkov:", error);
+                // Dodaj vse unikatne vaje v dropdown
+                sortedData.forEach(name =>
+                {
+                    const option = document.createElement("option");
+                    option.value = name;
+                    option.textContent = name;
+                    dropdown.appendChild(option);
+                    console.log(option);
+                });
             }
+
+
+            // Prikažemo podatke v elementu z ID-jem "test"
+            const testElement = document.getElementById("test");
+            testElement.innerText = JSON.stringify(data, null, 2);
+
+        } catch (error)
+        {
+            console.error("Napaka pri pridobivanju podatkov:", error);
         }
-        function sortAlphabetically(array) {
+    }
+    function sortAlphabetically(array)
+    {
         return array.sort((a, b) => a.localeCompare(b, 'sl')); // Upoštevaj slovensko abecedo
-        }
-        let selectedExercise = "";
-        // Funkcija za posodobitev trenutne izbire v dropdownu
-        document.getElementById("workouts").addEventListener('change', function() {
+    }
+    let selectedExercise = "";
+    // Funkcija za posodobitev trenutne izbire v dropdownu
+    document.getElementById("workouts").addEventListener('change', function ()
+    {
         selectedExercise = this.value;  // Shranimo izbrano vrednost
         //console.log("Trenutno izbrana vadba:", selectedExercise);
-        });
+    });
 
 
 
     // Izpis črtnega grafa
-    async function workoutMaxOverTime(workoutData){
+    async function workoutMaxOverTime(workoutData)
+    {
         /*
           1.) Pridobiti indexe za vse vaje in jih hraniti v slovar
           2.) Dobiti pravilni indeks za vajo iz selecta
@@ -156,7 +192,8 @@
         const response = await fetch('/getAllExercises');
         const data = await response.json();
         const exerciseIndex = {};
-        data.forEach(exercise => {
+        data.forEach(exercise =>
+        {
             exerciseIndex[exercise.name] = exercise.id;
         });
         console.log("Data:", exerciseIndex);
@@ -183,7 +220,8 @@
         // 4.) Stvar vizualizirati z linked scatterplotom 
         visualizeMaxWeights(dates, maxWeights);
     }
-    function visualizeMaxWeights(dates, maxWeights) {
+    function visualizeMaxWeights(dates, maxWeights)
+    {
         // Prepare the data
         const data = maxWeights.map((maxWeight, index) => ({
             index: index + 1,
@@ -220,13 +258,13 @@
         // Clear previous content
         svg.selectAll("*").remove();
 
-// Add X axis
-svg.append("g")
-    .attr("transform", `translate(0,${height - marginBottom})`)
-    .call(d3.axisBottom(x).tickFormat('').tickSize(0))
-    .call(g => g.select(".domain").attr("stroke", "green"))
-    .selectAll("text")
-    .style("font-size", "10px");
+        // Add X axis
+        svg.append("g")
+            .attr("transform", `translate(0,${height - marginBottom})`)
+            .call(d3.axisBottom(x).tickFormat('').tickSize(0))
+            .call(g => g.select(".domain").attr("stroke", "green"))
+            .selectAll("text")
+            .style("font-size", "10px");
 
         // Add Y axis
         svg.append("g")
@@ -235,78 +273,81 @@ svg.append("g")
             .selectAll("text")
             .style("font-size", "10px");
 
-// Define the line
-const line = d3.line()
-    .curve(d3.curveCatmullRom)
-    .x(d => x(d.index))
-    .y(d => y(d.maxWeight));
+        // Define the line
+        const line = d3.line()
+            .curve(d3.curveCatmullRom)
+            .x(d => x(d.index))
+            .y(d => y(d.maxWeight));
 
-// Add the line with transition
-const path = svg.append("path")
-    .datum(data)
-    .attr("fill", "none")
-    .attr("stroke", "blue")
-    .attr("stroke-width", 1.5)
-    .attr("d", line);
+        // Add the line with transition
+        const path = svg.append("path")
+            .datum(data)
+            .attr("fill", "none")
+            .attr("stroke", "blue")
+            .attr("stroke-width", 1.5)
+            .attr("d", line);
 
-const totalLength = path.node().getTotalLength();
+        const totalLength = path.node().getTotalLength();
 
-path.attr("stroke-dasharray", `${totalLength} ${totalLength}`)
-    .attr("stroke-dashoffset", totalLength)
-    .transition()
-    .duration(5000)
-    .ease(d3.easeLinear)
-    .attr("stroke-dashoffset", 0);
+        path.attr("stroke-dasharray", `${totalLength} ${totalLength}`)
+            .attr("stroke-dashoffset", totalLength)
+            .transition()
+            .duration(5000)
+            .ease(d3.easeLinear)
+            .attr("stroke-dashoffset", 0);
 
-// Find the maximum value and its corresponding data point
-const maxWeight = d3.max(data, d => d.maxWeight);
-const maxDataPoint = data.find(d => d.maxWeight === maxWeight);
+        // Find the maximum value and its corresponding data point
+        const maxWeight = d3.max(data, d => d.maxWeight);
+        const maxDataPoint = data.find(d => d.maxWeight === maxWeight);
 
-// Add points
-svg.append("g")
-    .attr("fill", "white")
-    .attr("stroke", "black")
-    .attr("stroke-width", 1.5)
-    .selectAll("circle")
-    .data(data)
-    .join("circle")
-    .attr("cx", d => x(d.index))
-    .attr("cy", d => y(d.maxWeight))
-    .attr("r", d => d.maxWeight === maxWeight ? 6 : 3) // Larger radius for maximum points
-    .attr("fill", d => d.maxWeight === maxWeight ? "red" : "white") // Red color for maximum points
-    .on("mouseover", (event, d) => {
-        tooltip.style("visibility", "visible")
-            .html(`<p style="color: black;"><strong>Date:</strong> ${d.date}</p><br>
+        // Add points
+        svg.append("g")
+            .attr("fill", "white")
+            .attr("stroke", "black")
+            .attr("stroke-width", 1.5)
+            .selectAll("circle")
+            .data(data)
+            .join("circle")
+            .attr("cx", d => x(d.index))
+            .attr("cy", d => y(d.maxWeight))
+            .attr("r", d => d.maxWeight === maxWeight ? 6 : 3) // Larger radius for maximum points
+            .attr("fill", d => d.maxWeight === maxWeight ? "red" : "white") // Red color for maximum points
+            .on("mouseover", (event, d) =>
+            {
+                tooltip.style("visibility", "visible")
+                    .html(`<p style="color: black;"><strong>Date:</strong> ${d.date}</p><br>
                    <p style="color: black;"><strong>Max Weight:</strong> ${d.maxWeight} kg </p>`);
-    })
-    .on("mousemove", event => {
-        tooltip.style("top", `${event.pageY + 10}px`)
-            .style("left", `${event.pageX + 10}px`);
-    })
-    .on("mouseout", () => {
-        tooltip.style("visibility", "hidden");
-    });
+            })
+            .on("mousemove", event =>
+            {
+                tooltip.style("top", `${event.pageY + 10}px`)
+                    .style("left", `${event.pageX + 10}px`);
+            })
+            .on("mouseout", () =>
+            {
+                tooltip.style("visibility", "hidden");
+            });
 
-// Add text for the maximum value
-svg.append("text")
-    .attr("x", x(maxDataPoint.index) + 10) // Adjust the position as needed
-    .attr("y", y(maxDataPoint.maxWeight) - 10) // Adjust the position as needed
-    .attr("fill", "red")
-    .attr("font-size", "12px")
-    .attr("font-weight", "bold")
-    .text(`${maxDataPoint.maxWeight} kg`);
+        // Add text for the maximum value
+        svg.append("text")
+            .attr("x", x(maxDataPoint.index) + 10) // Adjust the position as needed
+            .attr("y", y(maxDataPoint.maxWeight) - 10) // Adjust the position as needed
+            .attr("fill", "red")
+            .attr("font-size", "12px")
+            .attr("font-weight", "bold")
+            .text(`${maxDataPoint.maxWeight} kg`);
 
-// Add tooltip
-const tooltip = d3.select("body").append("div")
-    .attr("class", "tooltip")
-    .style("position", "absolute")
-    .style("visibility", "hidden")
-    .style("background-color", "white")
-    .style("border", "1px solid black")
-    .style("border-radius", "5px")
-    .style("padding", "10px")
-    .style("font-family", "sans-serif")
-    .style("font-size", "10px");
+        // Add tooltip
+        const tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("position", "absolute")
+            .style("visibility", "hidden")
+            .style("background-color", "white")
+            .style("border", "1px solid black")
+            .style("border-radius", "5px")
+            .style("padding", "10px")
+            .style("font-family", "sans-serif")
+            .style("font-size", "10px");
     }
 
 
@@ -314,41 +355,44 @@ const tooltip = d3.select("body").append("div")
     /*      BARCHART RAZLIKA VADB/MESEC oz. kir mesec smo bli pridn       */
 
 
-    async function workoutByMonths() {
-    /*
-        1.) Pridobiti workout data za vse vaje
-        2.) Kvantizirati, kiliko vaj je bilo vsak mesec
-        3.) Vizualizirati z barchartom
-    */
+    async function workoutByMonths()
+    {
+        /*
+            1.) Pridobiti workout data za vse vaje
+            2.) Kvantizirati, kiliko vaj je bilo vsak mesec
+            3.) Vizualizirati z barchartom
+        */
 
-    // 1.) Pridobiti workout data za vse vaje
-    const responseWO = await fetch('/getAllWorkoutsForUser');
-    const dataWO = await responseWO.json();
-    console.log("Workout data:", dataWO);
+        // 1.) Pridobiti workout data za vse vaje
+        const responseWO = await fetch('/getAllWorkoutsForUser');
+        const dataWO = await responseWO.json();
+        console.log("Workout data:", dataWO);
 
-    // 2.) Kvantizirati, kiliko vaj je bilo vsak mesec
-    const meseci = ["Januar", "Februar", "Marec", "April", "Maj", "Junij", "Julij", "Avgust", "September", "Oktober", "November", "December"];
-    const currentMonthIndex = new Date().getMonth();
-    const orderedMeseci = [...meseci.slice(currentMonthIndex + 1), ...meseci.slice(0, currentMonthIndex + 1), meseci[currentMonthIndex]];
-    const mesecData = {};
-    orderedMeseci.forEach(mesec => mesecData[mesec] = 0); // Initialize all months with 0
+        // 2.) Kvantizirati, kiliko vaj je bilo vsak mesec
+        const meseci = ["Januar", "Februar", "Marec", "April", "Maj", "Junij", "Julij", "Avgust", "September", "Oktober", "November", "December"];
+        const currentMonthIndex = new Date().getMonth();
+        const orderedMeseci = [...meseci.slice(currentMonthIndex + 1), ...meseci.slice(0, currentMonthIndex + 1), meseci[currentMonthIndex]];
+        const mesecData = {};
+        orderedMeseci.forEach(mesec => mesecData[mesec] = 0); // Initialize all months with 0
 
-    dataWO.forEach(workout => {
-        const date = new Date(workout.date);
-        const mesec = meseci[date.getMonth()];
-        mesecData[mesec]++;
-    });
+        dataWO.forEach(workout =>
+        {
+            const date = new Date(workout.date);
+            const mesec = meseci[date.getMonth()];
+            mesecData[mesec]++;
+        });
 
-    // Log the data after processing
-    console.log("Mesec data:", mesecData);
+        // Log the data after processing
+        console.log("Mesec data:", mesecData);
 
-    // 3.) Vizualizirati z barchartom
-    createBarChart(mesecData);
-}
+        // 3.) Vizualizirati z barchartom
+        createBarChart(mesecData);
+    }
 
-function createBarChart(data) {
-    // Počisti obstoječo vizualizacijo
-    d3.select("#workoutsOverMonthsPlatno").selectAll("*").remove();
+    function createBarChart(data)
+    {
+        // Počisti obstoječo vizualizacijo
+        d3.select("#workoutsOverMonthsPlatno").selectAll("*").remove();
 
         // Dimensions
         const width = 1500;
@@ -359,63 +403,63 @@ function createBarChart(data) {
         const marginLeft = 40;
 
 
-    // Ustvari SVG platno
-    const svg = d3.select("#workoutsOverMonthsPlatno")
-        .attr("width", width)
-        .attr("height", height)
-        .attr("viewBox", [0, 0, width, height])
-        .attr("style", "max-width: 100%; height: auto;");
+        // Ustvari SVG platno
+        const svg = d3.select("#workoutsOverMonthsPlatno")
+            .attr("width", width)
+            .attr("height", height)
+            .attr("viewBox", [0, 0, width, height])
+            .attr("style", "max-width: 100%; height: auto;");
 
-    // Nastavi lestvici za x in y os
-    const xScale = d3.scaleBand()
-        .domain(Object.keys(data))
-        .range([marginLeft, width - marginRight])
-        .padding(0.1);
+        // Nastavi lestvici za x in y os
+        const xScale = d3.scaleBand()
+            .domain(Object.keys(data))
+            .range([marginLeft, width - marginRight])
+            .padding(0.1);
 
-    const yScale = d3.scaleLinear()
-        .domain([0, d3.max(Object.values(data))])
-        .nice()
-        .range([height - marginBottom, marginTop]);
+        const yScale = d3.scaleLinear()
+            .domain([0, d3.max(Object.values(data))])
+            .nice()
+            .range([height - marginBottom, marginTop]);
 
-    // Ustvari stolpce
-    svg.append("g")
-        .attr("fill", "#d0dbd1")
-        .selectAll("rect")
-        .data(Object.entries(data))
-        .join("rect")
-        .attr("x", d => xScale(d[0]))
-        .attr("y", d => yScale(d[1]))
-        .attr("height", d => yScale(0) - yScale(d[1]))
-        .attr("width", xScale.bandwidth());
+        // Ustvari stolpce
+        svg.append("g")
+            .attr("fill", "#d0dbd1")
+            .selectAll("rect")
+            .data(Object.entries(data))
+            .join("rect")
+            .attr("x", d => xScale(d[0]))
+            .attr("y", d => yScale(d[1]))
+            .attr("height", d => yScale(0) - yScale(d[1]))
+            .attr("width", xScale.bandwidth());
 
-    // Ustvari x os
-    svg.append("g")
-        .attr("transform", `translate(0,${height - marginBottom})`)
-        .call(d3.axisBottom(xScale).tickSizeOuter(0));
+        // Ustvari x os
+        svg.append("g")
+            .attr("transform", `translate(0,${height - marginBottom})`)
+            .call(d3.axisBottom(xScale).tickSizeOuter(0));
 
-    // Ustvari y os
-    svg.append("g")
-        .attr("transform", `translate(${marginLeft},0)`)
-        .call(d3.axisLeft(yScale).tickFormat(y => y))
-        .call(g => g.select(".domain").remove())
-        .call(g => g.append("text")
-            .attr("x", -marginLeft)
-            .attr("y", 10)
-            .attr("fill", "currentColor")
-            .attr("text-anchor", "start")
+        // Ustvari y os
+        svg.append("g")
+            .attr("transform", `translate(${marginLeft},0)`)
+            .call(d3.axisLeft(yScale).tickFormat(y => y))
+            .call(g => g.select(".domain").remove())
+            .call(g => g.append("text")
+                .attr("x", -marginLeft)
+                .attr("y", 10)
+                .attr("fill", "currentColor")
+                .attr("text-anchor", "start")
             );
 
-    // Dodaj besedilo z vrednostmi na vrh stolpcev
-    svg.selectAll(".text")
-        .data(Object.entries(data))
-        .enter()
-        .append("text")
-        .attr("x", d => xScale(d[0]) + xScale.bandwidth() / 2)
-        .attr("y", d => yScale(d[1]) - 5)
-        .attr("text-anchor", "middle")
-        .attr("fill", "#333")
-        .text(d => d[1]);
-}
+        // Dodaj besedilo z vrednostmi na vrh stolpcev
+        svg.selectAll(".text")
+            .data(Object.entries(data))
+            .enter()
+            .append("text")
+            .attr("x", d => xScale(d[0]) + xScale.bandwidth() / 2)
+            .attr("y", d => yScale(d[1]) - 5)
+            .attr("text-anchor", "middle")
+            .attr("fill", "#333")
+            .text(d => d[1]);
+    }
 </script>
 
 </html>

@@ -2,30 +2,55 @@
 
 {% block content %}
 
-<body onload="workoutByMonths()">
-    <div id="vizualizacijaEna" class="vizualizacija" style="width: 100%; height: 45%;">
-        <div class="content" style="width: 100%; height: 100%;">
-            <h2>Število vaj po mesecih</h2>
-            <svg id="workoutsOverMonthsPlatno" width="100%" height="100%"></svg>
-        </div>
+<div id="vizualizacijaEna" class="vizualizacija" style="width: 100%; height: 45%;">
+    <div class="content" style="width: 100%; height: 100%;">
+        <h2>Število vaj po mesecih</h2>
+        <svg id="workoutsOverMonthsPlatno" width="100%" height="100%"></svg>
     </div>
+</div>
 
-    <div id="selectWorkout" style="width: 100%; height: 10%; display: flex; align-items: center;">
-        <div style="display: flex; justify-content: flex-start; align-items: center;">
-            <select id="workouts" onclick="fetchAllWorkouts()" style="width: 150px;">
-                <option value="">Izberi vajo</option>
-            </select>
-            <button id="woMaxButton" onclick="workoutMaxOverTime()">Prikaži</button>
-        </div>
+<div id="selectWorkout" style="width: 100%; height: 10%; display: flex; align-items: center;">
+    <div style="display: flex; justify-content: flex-start; align-items: center; gap: 8px;">
+        <select id="workouts" style="width: 180px;">
+            <option value="">Izberi vajo</option>
+        </select>
+        <button id="woMaxButton" type="button">Prikaži</button>
     </div>
+</div>
 
-    <div id="vizualizacijaDve" class="vizualizacija" style="width: 100%; height: 45%;">
-        <div class="content" style="width: 100%; height: 100%;">
-            <h2>Največja teža skozi čas</h2>
-            <svg id="visualizationWOMax" width="100%" height="100%"></svg>
-        </div>
+<div id="vizualizacijaDve" class="vizualizacija" style="width: 100%; height: 45%;">
+    <div class="content" style="width: 100%; height: 100%;">
+        <h2>Največja teža skozi čas</h2>
+        <svg id="visualizationWOMax" width="100%" height="100%"></svg>
     </div>
+</div>
 
+<script>
+    document.addEventListener("DOMContentLoaded", () =>
+    {
+        if (typeof workoutByMonths === "function")
+        {
+            workoutByMonths();
+        }
 
-</body>
+        const select = document.getElementById("workouts");
+        if (typeof fetchAllWorkouts === "function")
+        {
+            fetchAllWorkouts();
+            // refresh list when user focuses the select
+            select.addEventListener("focus", () => fetchAllWorkouts());
+        }
+
+        // bind button click
+        const btn = document.getElementById("woMaxButton");
+        btn.addEventListener("click", () =>
+        {
+            if (typeof workoutMaxOverTime === "function")
+            {
+                workoutMaxOverTime();
+            }
+        });
+    });
+</script>
+
 {% endblock %}

@@ -1,3 +1,4 @@
+import requests
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
 import os
@@ -27,6 +28,82 @@ class Workout(db.Model):
     is_bodyweight = db.Column(db.Boolean, nullable=False)
     exercise_id = db.Column(db.Integer, nullable=False)
     user_id = db.Column(db.Integer, nullable=False)
+
+
+class Exercise(db.Model):
+    __tablename__ = "exercise"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False)
+    user_id = db.Column(db.Integer, nullable=False)
+
+    def to_dict(self):
+        return {"id": self.id, "name": self.name, "user_id": self.user_id}
+
+
+TIMEZONEDB_API_KEY = os.getenv("TIMEZONEDB_API_KEY")
+DEFAULT_TZ = os.getenv("DEFAULT_TZ", "Europe/Ljubljana")
+
+
+@app.get("/external/time")
+def external_time():
+    if not TIMEZONEDB_API_KEY:
+        return jsonify({"error": "TIMEZONEDB_API_KEY is not set"}), 500
+
+    tz = request.args.get("tz") or DEFAULT_TZ
+
+    url = "http://api.timezonedb.com/v2.1/get-time-zone"
+    params = {
+        "key": TIMEZONEDB_API_KEY,
+        "format": "json",
+        "by": "zone",
+        "zone": tz
+    }
+
+    r = requests.get(url, params=params, timeout=5)
+    r.raise_for_status()
+    data = r.json()
+
+    if data.get("status") != "OK":
+        return jsonify({"error": "TimeZoneDB failed", "details": data}), 502
+
+    return jsonify({
+        "timezone": data.get("zoneName"),
+        "country": data.get("countryName"),
+        "formatted": data.get("formatted"),
+        "timestamp": data.get("timestamp"),
+        "source": "timezonedb"
+    }), 200
+
+
+@app.get("/api/workouts")
+def api_workouts():
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+
+    workouts = Workout.query.filter_by(user_id=user_id).all()
+    return jsonify([
+        {
+            "id": w.id,
+            "date": w.date.isoformat(),
+            "sets": w.sets,
+            "reps": w.reps,
+            "extra_weight": w.extra_weight,
+            "is_bodyweight": w.is_bodyweight,
+            "exercise_id": w.exercise_id,
+            "user_id": w.user_id
+        } for w in workouts
+    ])
+
+
+@app.get("/api/exercises")
+def api_exercises():
+    user_id = request.args.get("user_id", type=int)
+    if not user_id:
+        return jsonify({"error": "user_id is required"}), 400
+
+    exercises = Exercise.query.filter_by(user_id=user_id).all()
+    return jsonify([e.to_dict() for e in exercises])
 
 
 @app.get("/health")

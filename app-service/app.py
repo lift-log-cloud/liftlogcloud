@@ -10,7 +10,6 @@ import os
 
 STATS_SERVICE_URL = os.getenv("STATS_SERVICE_URL", "http://stats:5000")
 
-
 app = Flask(__name__)
 load_dotenv("key.env")
 app.secret_key = os.getenv('SECRET_KEY')
@@ -278,6 +277,15 @@ def seedExercises(userid):
 # Routes
 
 
+@app.get("/api/time")
+def api_time():
+    import requests
+    import os
+    base = os.getenv("STATS_SERVICE_URL", "http://stats:5000")
+    r = requests.get(f"{base}/external/time", timeout=5)
+    return jsonify(r.json()), r.status_code
+
+
 @app.route("/statsSummary", methods=["GET"])
 def stats_summary():
     if "uid" not in session:
@@ -349,10 +357,20 @@ def add_exercise():
     return jsonify({'success': False})
 
 
+# @app.route('/getAllExercises', methods=['GET'])
+# def getAllExercises():
+#     exercises = getExercises(session['uid'])
+#     return jsonify(exercises)
+
+# proxy for the other microservice
 @app.route('/getAllExercises', methods=['GET'])
 def getAllExercises():
-    exercises = getExercises(session['uid'])
-    return jsonify(exercises)
+    if 'uid' not in session:
+        return redirect(url_for('loginScreen'))
+
+    r = requests.get(f"{STATS_SERVICE_URL}/api/exercises",
+                     params={"user_id": session["uid"]}, timeout=5)
+    return jsonify(r.json()), r.status_code
 
 
 @app.route('/getExercisesInMonth/<int:year>/<int:month>', methods=['GET'])
@@ -488,13 +506,23 @@ def show_stats():
     return render_template('stats.html')
 
 
+# @app.route('/getAllWorkoutsForUser', methods=['GET'])
+# def getAllWorkoutsForUser():
+#     # Assuming getAllWorkouts is a function that fetches workouts
+#     workouts = getAllWorkouts(session['uid'])
+#     # Convert each Workout object to a dictionary
+#     workouts_serializable = [workout.to_dict() for workout in workouts]
+#     return jsonify(workouts_serializable)
+
+# proxy for the other microservice
 @app.route('/getAllWorkoutsForUser', methods=['GET'])
 def getAllWorkoutsForUser():
-    # Assuming getAllWorkouts is a function that fetches workouts
-    workouts = getAllWorkouts(session['uid'])
-    # Convert each Workout object to a dictionary
-    workouts_serializable = [workout.to_dict() for workout in workouts]
-    return jsonify(workouts_serializable)
+    if 'uid' not in session:
+        return redirect(url_for('loginScreen'))
+
+    r = requests.get(
+        f"{STATS_SERVICE_URL}/api/workouts", params={"user_id": session["uid"]}, timeout=5)
+    return jsonify(r.json()), r.status_code
 
 
 if __name__ == '__main__':
