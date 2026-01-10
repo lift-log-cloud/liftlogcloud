@@ -192,13 +192,13 @@ def seedDB():
 # Helpers
 
 @app.before_request
-def metrics_before():
+def _metrics_before():
     IN_PROGRESS.labels(SERVICE_NAME).inc()
     request._start_time = time.time()
 
 
 @app.after_request
-def metrics_after(response):
+def _metrics_after(response):
     try:
         elapsed = time.time() - getattr(request, "_start_time", time.time())
         endpoint = request.path
