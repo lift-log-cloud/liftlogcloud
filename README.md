@@ -154,7 +154,7 @@ docker compose up -d
 ```
 
 Access:
-- Core UI: `http://localhost:25565`
+- Core UI: `http://localhost:25590`
 - Stats API: `http://localhost:5001`
 
 If migrations dont exist yet:
@@ -201,7 +201,7 @@ kubectl -n liftlog get hpa
 ```
 
 The core service is exposed via:
-- `LoadBalancer` on port `25565`
+- `LoadBalancer` on port `25590`
 
 Database migrations are applied using:
 ```

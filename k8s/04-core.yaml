@@ -18,7 +18,7 @@ spec:
         image: liftlogcloud-core:latest
         imagePullPolicy: IfNotPresent
         ports:
-        - containerPort: 25565
+        - containerPort: 25590
         env:
         - name: DATABASE_URL
           valueFrom:
@@ -38,13 +38,13 @@ spec:
         readinessProbe:
           httpGet:
             path: /health
-            port: 25565
+            port: 25590
           initialDelaySeconds: 5
           periodSeconds: 10
         livenessProbe:
           httpGet:
             path: /health
-            port: 25565
+            port: 25590
           initialDelaySeconds: 15
           periodSeconds: 20
         resources:
@@ -66,5 +66,5 @@ spec:
     app: core
   ports:
   - name: http
-    port: 25565
-    targetPort: 25565
+    port: 25590
+    targetPort: 25590

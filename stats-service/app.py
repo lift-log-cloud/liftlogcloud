@@ -1,10 +1,22 @@
-import requests
 from flask import Flask, jsonify, request
 from flask_sqlalchemy import SQLAlchemy
-import os
 from datetime import datetime
+from flasgger import Swagger
+import requests
+import os
 
 app = Flask(__name__)
+
+swagger_template = {
+    "swagger": "2.0",
+    "info": {
+        "title": "LiftLog Stats API",
+        "description": "Stats microservice endpoints (analytics + external time API).",
+        "version": "1.0.0"
+    }
+}
+Swagger(app, template=swagger_template)
+
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
@@ -46,6 +58,36 @@ DEFAULT_TZ = os.getenv("DEFAULT_TZ", "Europe/Ljubljana")
 
 @app.get("/external/time")
 def external_time():
+    """
+    Fetch current time for timezone using TimeZoneDB (external API, API key auth)
+    ---
+    tags:
+      - External
+    parameters:
+      - name: tz
+        in: query
+        type: string
+        required: false
+        example: "Europe/Ljubljana"
+    responses:
+      200:
+        description: Time info (from external provider)
+        schema:
+          type: object
+          properties:
+            timezone: {type: string, example: "Europe/Ljubljana"}
+            formatted: {type: string, example: "2026-01-10 02:34:40"}
+            country: {type: string, example: "Slovenia"}
+            source: {type: string, example: "timezonedb"}
+      500:
+        description: Missing API key configuration
+        schema:
+          type: object
+          properties:
+            error: {type: string, example: "TIMEZONEDB_API_KEY is not set"}
+      502:
+        description: External provider error
+    """
     if not TIMEZONEDB_API_KEY:
         return jsonify({"error": "TIMEZONEDB_API_KEY is not set"}), 500
 
@@ -77,6 +119,27 @@ def external_time():
 
 @app.get("/api/workouts")
 def api_workouts():
+    """
+    List workouts for a user (API endpoint consumed by core proxy).
+    ---
+    tags:
+      - API
+    parameters:
+      - name: user_id
+        in: query
+        type: integer
+        required: true
+        example: 1
+    responses:
+      200:
+        description: List of workouts
+      400:
+        description: Missing user_id
+        schema:
+          type: object
+          properties:
+            error: {type: string, example: "user_id is required"}
+    """
     user_id = request.args.get("user_id", type=int)
     if not user_id:
         return jsonify({"error": "user_id is required"}), 400
@@ -98,6 +161,36 @@ def api_workouts():
 
 @app.get("/api/exercises")
 def api_exercises():
+    """
+    List exercises for a user (read-only)
+    ---
+    tags:
+      - Stats
+    parameters:
+      - name: user_id
+        in: query
+        type: integer
+        required: true
+        example: 1
+    responses:
+      200:
+        description: List of exercises
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer, example: 1}
+              name: {type: string, example: "bench press"}
+              user_id: {type: integer, example: 1}
+      400:
+        description: Missing user_id
+        schema:
+          type: object
+          properties:
+            error: {type: string, example: "user_id is required"}
+    """
+
     user_id = request.args.get("user_id", type=int)
     if not user_id:
         return jsonify({"error": "user_id is required"}), 400
@@ -108,6 +201,32 @@ def api_exercises():
 
 @app.get("/health")
 def health():
+    """
+    Health check (DB connectivity).
+    ---
+    tags:
+      - Health
+    responses:
+      200:
+        description: Service is up and DB reachable
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: UP
+      500:
+        description: Service down or DB not reachable
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+              example: DOWN
+            error:
+              type: string
+              example: "could not connect to server"
+    """
     try:
         db.session.execute(db.text("SELECT 1"))
         return jsonify({"status": "UP"}), 200
@@ -117,6 +236,36 @@ def health():
 
 @app.get("/stats/summary")
 def summary_for_user():
+    """
+    Stats summary for a user.
+    ---
+    tags:
+      - Stats
+    parameters:
+      - name: user_id
+        in: query
+        type: integer
+        required: true
+        example: 1
+    responses:
+      200:
+        description: Summary stats for the user
+        schema:
+          type: object
+          properties:
+            user_id: {type: integer, example: 1}
+            total_workouts: {type: integer, example: 12}
+            total_sets: {type: integer, example: 48}
+            total_reps: {type: integer, example: 360}
+            total_tonnage: {type: number, example: 12540.0}
+            generated_at: {type: string, example: "2026-01-10T01:35:40Z"}
+      400:
+        description: Missing user_id
+        schema:
+          type: object
+          properties:
+            error: {type: string, example: "user_id query param is required"}
+    """
     user_id = request.args.get("user_id", type=int)
     if not user_id:
         return jsonify({"error": "user_id query param is required"}), 400
@@ -149,6 +298,46 @@ def summary_for_user():
 
 @app.get("/stats/workouts")
 def workouts_for_user():
+    """
+    Get workouts (ordered by date) for a user.
+    ---
+    tags:
+      - Stats
+    parameters:
+      - name: user_id
+        in: query
+        type: integer
+        required: true
+        example: 1
+    responses:
+      200:
+        description: List of workouts
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer, example: 10}
+              date: {type: string, example: "2026-01-10"}
+              sets: {type: integer, example: 3}
+              reps:
+                type: array
+                items: {type: integer}
+                example: [10, 10, 10]
+              extra_weight:
+                type: array
+                items: {type: number}
+                example: [60, 60, 60]
+              is_bodyweight: {type: boolean, example: false}
+              exercise_id: {type: integer, example: 2}
+              user_id: {type: integer, example: 1}
+      400:
+        description: Missing user_id
+        schema:
+          type: object
+          properties:
+            error: {type: string, example: "user_id query param is required"}
+    """
     user_id = request.args.get("user_id", type=int)
     if not user_id:
         return jsonify({"error": "user_id query param is required"}), 400

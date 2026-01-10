@@ -39,7 +39,7 @@ services:
       stats:
         condition: service_started
     ports:
-      - "25565:25565"
+      - "25590:25590"
 
 volumes:
   pgdata:

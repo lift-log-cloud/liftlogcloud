@@ -1,8 +1,9 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session
-from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from dotenv import load_dotenv
+from datetime import datetime
+from flasgger import Swagger
 import requests
 import calendar
 import bcrypt
@@ -11,6 +12,18 @@ import os
 STATS_SERVICE_URL = os.getenv("STATS_SERVICE_URL", "http://stats:5000")
 
 app = Flask(__name__)
+
+swagger_template = {
+    "swagger": "2.0",
+    "info": {
+        "title": "LiftLog Core API",
+        "description": "Core service endpoints (auth, workouts, exercises, proxy to stats).",
+        "version": "1.0.0"
+    }
+}
+Swagger(app, template=swagger_template)
+
+
 load_dotenv("key.env")
 app.secret_key = os.getenv('SECRET_KEY')
 
@@ -87,13 +100,11 @@ class User(db.Model):
     username = db.Column(db.String(50), unique=True, nullable=False)
     passwordHash = db.Column(db.String(255), nullable=False)
 
-# TODO remove
-
-
-@app.route('/drop_all_tables')
-def drop_all_tables():
-    db.drop_all()
-    return "All tables dropped!"
+# # TODO remove
+# @app.route('/drop_all_tables')
+# def drop_all_tables():
+#     db.drop_all()
+#     return "All tables dropped!"
 
 
 def seedDB():
@@ -279,8 +290,24 @@ def seedExercises(userid):
 
 @app.get("/api/time")
 def api_time():
-    import requests
-    import os
+    """
+    Get server time for configured timezone (proxy to stats-service external API)
+    ---
+    tags:
+      - Core
+    responses:
+      200:
+        description: Time info
+        schema:
+          type: object
+          properties:
+            timezone: {type: string, example: "Europe/Ljubljana"}
+            formatted: {type: string, example: "2026-01-10 02:34:40"}
+            source: {type: string, example: "timezonedb"}
+      500:
+        description: Upstream error
+    """
+
     base = os.getenv("STATS_SERVICE_URL", "http://stats:5000")
     r = requests.get(f"{base}/external/time", timeout=5)
     return jsonify(r.json()), r.status_code
@@ -288,6 +315,20 @@ def api_time():
 
 @app.route("/statsSummary", methods=["GET"])
 def stats_summary():
+    """
+    Stats summary for logged-in user (proxy to stats-service).
+    ---
+    tags:
+      - Core
+      - Proxy
+    responses:
+      200:
+        description: Summary stats for the authenticated user
+      302:
+        description: Redirect to login if not authenticated
+      502:
+        description: Upstream error (stats-service unreachable)
+    """
     if "uid" not in session:
         return redirect(url_for("loginScreen"))
 
@@ -301,6 +342,19 @@ def stats_summary():
 
 @app.route("/health")
 def health():
+    """
+    Health check for core service.
+    ---
+    tags:
+      - Health
+    responses:
+      200:
+        description: Service is up
+        schema:
+          type: object
+          properties:
+            status: {type: string, example: UP}
+    """
     return jsonify({"status": "UP"}), 200
 
 
@@ -345,6 +399,31 @@ def calendar_page(year, month):
 
 @app.route('/addExercise', methods=['POST'])
 def add_exercise():
+    """
+    Add a new exercise for the logged-in user.
+    ---
+    tags:
+      - Core
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            name: {type: string, example: "bench press"}
+    responses:
+      200:
+        description: Exercise created
+        schema:
+          type: object
+          properties:
+            success: {type: boolean, example: true}
+      302:
+        description: Redirect to login if not authenticated
+    """
     if 'uid' not in session:
         return redirect(url_for('loginScreen'))
     data = request.get_json()
@@ -365,6 +444,26 @@ def add_exercise():
 # proxy for the other microservice
 @app.route('/getAllExercises', methods=['GET'])
 def getAllExercises():
+    """
+    Get all exercises for the logged-in user (proxy to stats-service)
+    ---
+    tags:
+      - Core
+    responses:
+      200:
+        description: List of exercises
+        schema:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: integer, example: 1}
+              name: {type: string, example: "bench press"}
+              user_id: {type: integer, example: 1}
+      302:
+        description: Redirect to login if user not authenticated
+    """
+
     if 'uid' not in session:
         return redirect(url_for('loginScreen'))
 
@@ -381,6 +480,46 @@ def getExercisesInMonth(year, month):
 
 @app.route('/addWorkout', methods=['POST'])
 def add_workout():
+    """
+    Add a workout for the logged-in user.
+    ---
+    tags:
+      - Core
+    consumes:
+      - application/json
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            workout: {type: integer, example: 2, description: "exercise_id"}
+            sets: {type: integer, example: 3}
+            reps:
+              type: array
+              items: {type: integer}
+              example: [10, 10, 10]
+            weights:
+              type: array
+              items: {type: number}
+              example: [60, 60, 60]
+            isbodyweight: {type: boolean, example: false}
+    responses:
+      200:
+        description: Workout added
+        schema:
+          type: object
+          properties:
+            message: {type: string, example: "Workout added successfully"}
+      400:
+        description: Invalid input
+        schema:
+          type: string
+          example: "Invalid input"
+      302:
+        description: Redirect to login if not authenticated
+    """
     if 'uid' not in session:
         return redirect(url_for('loginScreen'))
     data = request.get_json()
@@ -517,6 +656,20 @@ def show_stats():
 # proxy for the other microservice
 @app.route('/getAllWorkoutsForUser', methods=['GET'])
 def getAllWorkoutsForUser():
+    """
+    Get all workouts for the logged-in user (proxy to stats-service).
+    ---
+    tags:
+      - Core
+      - Proxy
+    responses:
+      200:
+        description: List of workouts for authenticated user
+      302:
+        description: Redirect to login if not authenticated
+      502:
+        description: Upstream error (stats-service unreachable)
+    """
     if 'uid' not in session:
         return redirect(url_for('loginScreen'))
 
@@ -529,4 +682,4 @@ if __name__ == '__main__':
     # with app.app_context():
     #     db.create_all()
     # seedDB()
-    app.run(host='0.0.0.0', port=25565, debug=True)
+    app.run(host='0.0.0.0', port=25590, debug=True)
