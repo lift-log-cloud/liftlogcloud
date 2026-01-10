@@ -6,3 +6,5 @@ python-dotenv
 psycopg2-binary
 requests
 flasgger
+pybreaker
+tenacity

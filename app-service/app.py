@@ -1,15 +1,20 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash, session, Response
+from tenacity import retry, retry_if_exception_type, wait_exponential, stop_after_attempt
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from dotenv import load_dotenv
 from datetime import datetime
 from flasgger import Swagger
+import pybreaker
 import requests
 import calendar
 import bcrypt
 import os
 
 STATS_SERVICE_URL = os.getenv("STATS_SERVICE_URL", "http://stats:5000")
+
+# 5 fails -> opens for 30s
+stats_breaker = pybreaker.CircuitBreaker(fail_max=5, reset_timeout=30)
 
 app = Flask(__name__)
 
@@ -99,6 +104,11 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
     passwordHash = db.Column(db.String(255), nullable=False)
+
+
+class UpstreamError(Exception):
+    pass
+
 
 # # TODO remove
 # @app.route('/drop_all_tables')
@@ -285,16 +295,75 @@ def seedExercises(userid):
 
     db.session.commit()
 
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=0.2, min=0.2, max=2),
+    retry=retry_if_exception_type((requests.RequestException, UpstreamError)),
+    reraise=True
+)
+def _do_stats_get(path, params=None) -> requests.Response:
+    url = f"{STATS_SERVICE_URL}{path}"
+    r = requests.get(url, params=params, timeout=2.5)
+    # 5xx == failure (triggers retry / breaker)
+    if r.status_code >= 500:
+        raise UpstreamError(f"Upstream returned {r.status_code}")
+    return r
+
+
+def stats_get_with_breaker(path, params=None, fallback=None):
+    # wrapper that applies circuit breaker / retry
+    try:
+        # breaker wraps the retried call
+        r = stats_breaker.call(_do_stats_get, path, params)
+        # forward JSON if possible
+        try:
+            return r.json(), r.status_code
+        except Exception:
+            return {"status": "ERROR", "error": "Upstream returned non-JSON"}, 502
+
+    except pybreaker.CircuitBreakerError:
+        # breaker OPEN
+        return (fallback or {"status": "DEGRADED", "error": "stats-service unavailable (circuit open)"}), 503
+
+    except Exception as e:
+        # maxed retries or hard failure
+        return (fallback or {"status": "DEGRADED", "error": f"stats-service unavailable ({type(e).__name__})"}), 503
+
 # Routes
+
+
+@app.get("/resilience")
+def resilience_status():
+    """
+    Resilience status for stats-service proxy (circuit breaker state).
+    ---
+    tags:
+      - Resilience
+    responses:
+      200:
+        description: Current circuit breaker state and counters
+        schema:
+          type: object
+          properties:
+            breaker_state: {type: string, example: "closed"}
+            fail_counter: {type: integer, example: 0}
+            stats_service_url: {type: string, example: "http://stats:5000"}
+    """
+    return jsonify({
+        "breaker_state": str(stats_breaker.current_state),
+        "fail_counter": stats_breaker.fail_counter,
+        "stats_service_url": STATS_SERVICE_URL
+    }), 200
 
 
 @app.get("/api/time")
 def api_time():
     """
-    Get server time for configured timezone (proxy to stats-service external API)
+    Get server time for configured timezone (proxy to stats-service external API).
     ---
     tags:
-      - Core
+      - External
     responses:
       200:
         description: Time info
@@ -304,13 +373,24 @@ def api_time():
             timezone: {type: string, example: "Europe/Ljubljana"}
             formatted: {type: string, example: "2026-01-10 02:34:40"}
             source: {type: string, example: "timezonedb"}
-      500:
-        description: Upstream error
+      503:
+        description: Degraded mode (stats-service unavailable or circuit open)
+        schema:
+          type: object
+          properties:
+            status: {type: string, example: "DEGRADED"}
+            error: {type: string, example: "stats-service unavailable (circuit open)"}
     """
-
-    base = os.getenv("STATS_SERVICE_URL", "http://stats:5000")
-    r = requests.get(f"{base}/external/time", timeout=5)
-    return jsonify(r.json()), r.status_code
+    payload, code = stats_get_with_breaker(
+        "/external/time",
+        fallback={
+            "status": "DEGRADED",
+            "error": "Time service unavailable",
+            "source": "fallback",
+            "timezone": os.getenv("DEFAULT_TZ", "Europe/Ljubljana")
+        }
+    )
+    return jsonify(payload), code
 
 
 @app.route("/statsSummary", methods=["GET"])
@@ -319,25 +399,39 @@ def stats_summary():
     Stats summary for logged-in user (proxy to stats-service).
     ---
     tags:
-      - Core
       - Proxy
     responses:
       200:
         description: Summary stats for the authenticated user
       302:
         description: Redirect to login if not authenticated
-      502:
-        description: Upstream error (stats-service unreachable)
+      503:
+        description: Degraded mode (stats-service unavailable or circuit open)
+        schema:
+          type: object
+          properties:
+            status: {type: string, example: "DEGRADED"}
+            error: {type: string, example: "Stats service is unavailable"}
+            source: {type: string, example: "fallback"}
     """
     if "uid" not in session:
         return redirect(url_for("loginScreen"))
 
-    r = requests.get(
-        f"{STATS_SERVICE_URL}/stats/summary",
+    payload, code = stats_get_with_breaker(
+        "/stats/summary",
         params={"user_id": session["uid"]},
-        timeout=5
+        fallback={
+            "status": "DEGRADED",
+            "error": "Stats service is unavailable",
+            "user_id": session["uid"],
+            "total_workouts": 0,
+            "total_sets": 0,
+            "total_reps": 0,
+            "total_tonnage": 0.0,
+            "source": "fallback"
+        }
     )
-    return jsonify(r.json()), r.status_code
+    return jsonify(payload), code
 
 
 @app.route("/health")
@@ -445,10 +539,10 @@ def add_exercise():
 @app.route('/getAllExercises', methods=['GET'])
 def getAllExercises():
     """
-    Get all exercises for the logged-in user (proxy to stats-service)
+    Get all exercises for the logged-in user (proxy to stats-service).
     ---
     tags:
-      - Core
+      - Proxy
     responses:
       200:
         description: List of exercises
@@ -462,14 +556,25 @@ def getAllExercises():
               user_id: {type: integer, example: 1}
       302:
         description: Redirect to login if user not authenticated
+      503:
+        description: Degraded mode (stats-service unavailable or circuit open)
     """
-
     if 'uid' not in session:
         return redirect(url_for('loginScreen'))
 
-    r = requests.get(f"{STATS_SERVICE_URL}/api/exercises",
-                     params={"user_id": session["uid"]}, timeout=5)
-    return jsonify(r.json()), r.status_code
+    payload, code = stats_get_with_breaker(
+        "/api/exercises",
+        params={"user_id": session["uid"]},
+        fallback={"status": "DEGRADED",
+                  "error": "Stats service unavailable", "exercises": []}
+    )
+
+    # Your frontend expects a list
+    if isinstance(payload, list):
+        return jsonify(payload), code
+
+    # fallback -> return empty list so UI doesn't break
+    return jsonify([]), 200
 
 
 @app.route('/getExercisesInMonth/<int:year>/<int:month>', methods=['GET'])
@@ -660,22 +765,30 @@ def getAllWorkoutsForUser():
     Get all workouts for the logged-in user (proxy to stats-service).
     ---
     tags:
-      - Core
       - Proxy
     responses:
       200:
         description: List of workouts for authenticated user
       302:
         description: Redirect to login if not authenticated
-      502:
-        description: Upstream error (stats-service unreachable)
+      503:
+        description: Degraded mode (stats-service unavailable or circuit open)
     """
     if 'uid' not in session:
         return redirect(url_for('loginScreen'))
 
-    r = requests.get(
-        f"{STATS_SERVICE_URL}/api/workouts", params={"user_id": session["uid"]}, timeout=5)
-    return jsonify(r.json()), r.status_code
+    payload, code = stats_get_with_breaker(
+        "/api/workouts",
+        params={"user_id": session["uid"]},
+        fallback={"status": "DEGRADED",
+                  "error": "Stats service unavailable", "workouts": []}
+    )
+
+    if isinstance(payload, list):
+        return jsonify(payload), code
+
+    # fallback -> keep frontend stable
+    return jsonify([]), 200
 
 
 if __name__ == '__main__':
