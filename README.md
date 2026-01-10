@@ -59,3 +59,13 @@ to check status:
 `kubectl -n liftlog get pods`
 `kubectl -n liftlog get svc`
 `kubectl -n liftlog get hpa`
+
+
+
+## To set the keys:
+
+`kubectl -n liftlog delete secret liftlog-secrets`
+`kubectl -n liftlog create secret generic liftlog-secrets --from-literal=TIMEZONEDB_API_KEY="TIMEZONE_KEY_HERE" --from-literal=SECRET_KEY="FLASK_KEY_HERE"`
+
+`kubectl apply -f k8s/03-stats.yaml`
+`kubectl -n liftlog rollout restart deployment stats`
