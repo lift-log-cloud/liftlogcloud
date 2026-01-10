@@ -1,6 +1,10 @@
 *.venv
 *migrations
 
-key.env
 todo.md
 .idea
+
+*__pycache__
+*DS_Store
+*.db
+*.env
