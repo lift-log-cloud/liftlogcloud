@@ -214,6 +214,27 @@ To check if migrations were applied correctly you can view tables using:
 kubectl -n liftlog exec -it deploy/postgres -- psql -U admin -d workouts -c "\dt"
 ```
 
+Rebuilding and restarting if necessary:
+```bash
+# rebuild
+docker build -t liftlogcloud-core:latest ./app-service
+docker build -t liftlogcloud-stats:latest ./stats-service
+# reapply
+kubectl apply -f k8s/00-namespace.yaml
+kubectl apply -f k8s/01-config.yaml
+kubectl apply -f k8s/02-postgres.yaml
+kubectl apply -f k8s/03-stats.yaml
+kubectl apply -f k8s/04-core.yaml
+kubectl apply -f k8s/05-hpa.yaml
+
+# dont forget the secrets
+kubectl -n liftlog create secret generic liftlog-secrets --from-literal=SECRET_KEY="SECRET_KEY" --from-literal=TIMEZONEDB_API_KEY="TIMEZONEDB_API_KEY"
+
+# restart
+kubectl -n liftlog rollout restart deployment core
+kubectl -n liftlog rollout restart deployment stats
+```
+
 ---
 
 ## 9. Cloud-Native Concepts
