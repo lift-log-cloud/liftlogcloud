@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: core
+  namespace: liftlog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: core
+  template:
+    metadata:
+      labels:
+        app: core
+    spec:
+      containers:
+      - name: core
+        image: liftlogcloud-core:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 25565
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: liftlog-config
+              key: DATABASE_URL
+        - name: STATS_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: liftlog-config
+              key: STATS_SERVICE_URL
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: liftlog-secrets
+              key: SECRET_KEY
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 25565
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 25565
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        resources:
+          requests:
+            cpu: "150m"
+            memory: "256Mi"
+          limits:
+            cpu: "800m"
+            memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: core
+  namespace: liftlog
+spec:
+  selector:
+    app: core
+  ports:
+  - port: 80
+    targetPort: 25565
+  type: NodePort

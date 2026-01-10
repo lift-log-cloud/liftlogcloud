@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stats
+  namespace: liftlog
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stats
+  template:
+    metadata:
+      labels:
+        app: stats
+    spec:
+      containers:
+      - name: stats
+        image: liftlogcloud-stats:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000
+        env:
+        - name: TIMEZONEDB_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: liftlog-secrets
+              key: TIMEZONEDB_API_KEY
+        - name: DEFAULT_TZ
+          value: "Europe/Ljubljana"
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: liftlog-config
+              key: DATABASE_URL
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: stats
+  namespace: liftlog
+spec:
+  selector:
+    app: stats
+  ports:
+  - port: 5000
+    targetPort: 5000

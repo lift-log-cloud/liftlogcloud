@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: liftlog-config
+  namespace: liftlog
+data:
+  DATABASE_URL: "postgresql://admin:admin@postgres:5432/workouts"
+  STATS_SERVICE_URL: "http://stats:5000"
