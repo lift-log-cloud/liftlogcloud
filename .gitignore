@@ -1,5 +1,4 @@
 *.venv
-*migrations
 
 todo.md
 .idea
