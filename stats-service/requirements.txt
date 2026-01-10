@@ -1,0 +1,7 @@
+flask
+flask-sqlalchemy
+Flask-Migrate
+bcrypt
+python-dotenv
+psycopg2-binary
+requests
