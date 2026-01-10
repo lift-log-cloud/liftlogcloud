@@ -1,6 +1,15 @@
 # Lift Log Cloud
 Cloud-native fitness tracking app 
 
+## Repo Branching Strategy
+
+The project uses a simple branching strategy:
+- **main** – stable branch containing production-ready code
+- **dev** – development branch used for ongoing development and experimentation
+
+New features and changes are implemented in the `dev` branch and merged into `main` once they are stable.
+
+
 ## 1. Overview
 
 LiftLogCloud is a cloud-native web application for tracking strength training workouts.
@@ -260,10 +269,46 @@ The project follows cloud-native best practices:
 
 ## 11. Fault Isolation and Resilience
 
-Services are isolated into separate containers
-- Failure of the stats-service does not affect core functionality
-- Kubernetes automatically restarts unhealthy pods
-- Retry and timeout mechanisms are used for inter-service communication
+To ensure fault tolerance and service isolation, the application implements **resilience patterns** in the core microservice when communicating with the stats microservice.
+
+### Implemented Mechanisms
+
+- **Retry**  
+  All proxy calls from the core service to the stats service use automatic retries with exponential backoff.  
+  This mitigates transient network issues and temporary service overload.
+
+- **Circuit Breaker**  
+  A circuit breaker is used to monitor consecutive failures of the stats service.  
+  After 5 failed requests, the circuit **OPENS** and blocks further requests for a cooldown period (30s).
+
+- **Graceful Degradation (Fallbacks)**  
+  When the stats service is unavailable or the circuit breaker is open, the core service returns **fallback responses** instead of failing:
+  - The user interface remains responsive.
+  - Non-critical features (statistics) degrade gracefully.
+  - Core functionality (calendar, adding workouts, authentication) remains fully operational.
+
+### Service Isolation
+
+The stats microservice is isolated from the core service:
+- Failures in the stats service do **not cascade** to the core service.
+- The core service continues to serve user requests even if the stats service is unavailable.
+
+### Demonstration of Resilience
+
+Resilience can be observed by stopping the stats service:
+- Requests to statistics endpoints return fallback responses.
+- The circuit breaker state can be inspected via the `/resilience` endpoint.
+- After the cooldown period, the system automatically attempts recovery.
+
+Simulate stats service crash:
+```
+kubectl -n liftlog scale deployment stats --replicas=0
+```
+
+When done scale it back:
+```
+kubectl -n liftlog scale deployment stats --replicas=1
+```
 
 ---
 
