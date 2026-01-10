@@ -61,9 +61,10 @@ metadata:
   name: core
   namespace: liftlog
 spec:
+  type: LoadBalancer
   selector:
     app: core
   ports:
-  - port: 80
+  - name: http
+    port: 25565
     targetPort: 25565
-  type: NodePort
