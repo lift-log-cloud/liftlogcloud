@@ -8,3 +8,5 @@ todo.md
 *DS_Store
 *.db
 *.env
+
+k8s/01-secrets.yaml
