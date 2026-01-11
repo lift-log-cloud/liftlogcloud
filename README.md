@@ -327,3 +327,20 @@ gh repo clone NicX02/LiftLogCloud
 cd LiftLogCloud
 docker compose up -d
 ```
+
+## 12. Helm Deployment
+
+The project provides a Helm chart for deploying all components (core, stats, postgres).
+
+Keys need to be changed/set in `./helm/liftlog/values-dev.yaml` and or `./helm/liftlog/values-prod.yaml`, depending on the use case.
+
+The db pass needs to be changed aswell here `./helm/liftlog/values.yaml`
+
+### Dev (Minikube)
+```
+helm upgrade --install liftlog ./helm/liftlog -f ./helm/liftlog/values-dev.yaml
+```
+### Prod (k3s)
+```
+helm upgrade --install liftlog ./helm/liftlog -f ./helm/liftlog/values-prod.yaml
+```

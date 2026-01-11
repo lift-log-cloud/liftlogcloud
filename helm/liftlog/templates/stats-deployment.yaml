@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stats
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.stats.replicas }}
+  selector:
+    matchLabels:
+      app: stats
+  template:
+    metadata:
+      labels:
+        app: stats
+    spec:
+      containers:
+      - name: stats
+        image: "{{ .Values.stats.image }}:{{ .Values.stats.tag }}"
+        imagePullPolicy: {{ .Values.stats.pullPolicy }}
+        ports:
+        - containerPort: 5000
+        env:
+        - name: SERVICE_NAME
+          value: "stats"
+        - name: TIMEZONEDB_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: liftlog-secrets
+              key: TIMEZONEDB_API_KEY
+        - name: DEFAULT_TZ
+          valueFrom:
+            configMapKeyRef:
+              name: liftlog-config
+              key: DEFAULT_TZ
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: liftlog-config
+              key: DATABASE_URL
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        resources:
+{{ toYaml .Values.stats.resources | indent 10 }}

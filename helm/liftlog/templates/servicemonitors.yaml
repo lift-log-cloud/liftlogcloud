@@ -1,0 +1,39 @@
+{{- if and .Values.metrics.enabled .Values.metrics.serviceMonitor.enabled -}}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: liftlog-core
+  namespace: {{ .Values.metrics.serviceMonitor.namespace }}
+  labels:
+    release: {{ .Values.metrics.serviceMonitor.releaseLabel }}
+spec:
+  selector:
+    matchLabels:
+      app: core
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.namespace }}
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 15s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: liftlog-stats
+  namespace: {{ .Values.metrics.serviceMonitor.namespace }}
+  labels:
+    release: {{ .Values.metrics.serviceMonitor.releaseLabel }}
+spec:
+  selector:
+    matchLabels:
+      app: stats
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.namespace }}
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 15s
+{{- end -}}

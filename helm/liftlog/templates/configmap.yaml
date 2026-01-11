@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: liftlog-config
+  namespace: {{ .Values.namespace }}
+data:
+  DATABASE_URL: {{ printf "postgresql://%s:%s@postgres:%d/%s" .Values.postgres.user .Values.postgres.password (int .Values.postgres.servicePort) .Values.postgres.db | quote }}
+  STATS_SERVICE_URL: "http://stats:5000"
+  DEFAULT_TZ: {{ .Values.config.defaultTZ | quote }}

@@ -1,0 +1,20 @@
+core:
+  replicas: 1
+  service:
+    type: NodePort
+
+stats:
+  replicas: 1
+
+postgres:
+  storage:
+    size: 1Gi
+
+metrics:
+  enabled: false
+  serviceMonitor:
+    enabled: false
+
+secrets:
+  secretKey: "KEY_HERE"
+  timezonedbApiKey: "KEY_HERE"

@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: core
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: core
+spec:
+  type: {{ .Values.core.service.type }}
+  selector:
+    app: core
+  ports:
+  - name: http
+    port: {{ .Values.core.service.port }}
+    targetPort: {{ .Values.core.service.port }}

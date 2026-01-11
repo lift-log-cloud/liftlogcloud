@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: core
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: {{ .Values.core.replicas }}
+  selector:
+    matchLabels:
+      app: core
+  template:
+    metadata:
+      labels:
+        app: core
+    spec:
+      containers:
+      - name: core
+        image: "{{ .Values.core.image }}:{{ .Values.core.tag }}"
+        imagePullPolicy: {{ .Values.core.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.core.service.port }}
+        env:
+        - name: SERVICE_NAME
+          value: "core"
+        - name: SECRET_KEY
+          valueFrom:
+            secretKeyRef:
+              name: liftlog-secrets
+              key: SECRET_KEY
+        - name: DATABASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: liftlog-config
+              key: DATABASE_URL
+        - name: STATS_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: liftlog-config
+              key: STATS_SERVICE_URL
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: {{ .Values.core.service.port }}
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: {{ .Values.core.service.port }}
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        resources:
+{{ toYaml .Values.core.resources | indent 10 }}

@@ -1,0 +1,52 @@
+namespace: liftlog
+
+core:
+  image: liftlogcloud-core
+  tag: latest
+  pullPolicy: IfNotPresent
+  replicas: 1
+  service:
+    type: LoadBalancer
+    port: 25590
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+stats:
+  image: liftlogcloud-stats
+  tag: latest
+  pullPolicy: IfNotPresent
+  replicas: 1
+  service:
+    type: ClusterIP
+    port: 5000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+postgres:
+  image: postgres:15
+  db: workouts
+  user: admin
+  password: "CHANGE_THIS"
+  servicePort: 5432
+  storage:
+    size: 1Gi
+
+config:
+  defaultTZ: Europe/Ljubljana
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    releaseLabel: monitoring
