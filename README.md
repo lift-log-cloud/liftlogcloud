@@ -344,3 +344,50 @@ helm upgrade --install liftlog ./helm/liftlog -f ./helm/liftlog/values-dev.yaml
 ```
 helm upgrade --install liftlog ./helm/liftlog -f ./helm/liftlog/values-prod.yaml
 ```
+
+## 13 CI/CD
+This project uses GitHub Actions to implement a full CI/CD pipeline that automatically builds, tests, and deploys the application to a Kubernetes cluster.
+
+### Overview
+The CI/CD pipeline is triggered on every push to the master branch and consists of the following stages:
+1. Test
+- Installs dependencies for both microservices
+- Verifies that required Python packages can be imported
+
+2. Build & Push
+- Builds Docker images for:
+  - `core` microservice
+  - `stats` microservice
+
+- Pushes images to GitHub Container Registry (GHCR) with:
+  - Commit SHA tag
+  - `latest` tag
+
+3. Deploy
+- Connects to a remote Kubernetes (k3s) cluster using a kubeconfig stored as a GitHub secret
+- Applies Kubernetes manifests using `kubectl`
+- Restarts deployments to pull the newly built images
+- Waits for successful rollout of both services
+
+### Technologies Used
+- GitHub Actions – CI/CD automation
+- Docker Buildx – multi-platform image builds
+- GitHub Container Registry (GHCR) – container image storage
+- Kubernetes (k3s) – production deployment target
+
+### Secrets Used
+The following secrets are configured in the GitHub repository:
+
+- `K3S_KUBECONFIG_B64` – Base64-encoded kubeconfig for cluster access
+- `GHCR_USERNAME` – GitHub username for container registry access
+- `GHCR_TOKEN` – GitHub Personal Access Token with `read:packages` and `write:packages`
+
+Secrets are **never** committed to the repository and are injected securely during workflow execution.
+
+### Verification
+Successful deployment can be verified by:
+
+```
+kubectl -n liftlog get pods
+kubectl -n liftlog get svc
+```
