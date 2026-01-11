@@ -8,8 +8,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_CORE: ghcr.io/${{ github.repository_owner }}/liftlog-core
-  IMAGE_STATS: ghcr.io/${{ github.repository_owner }}/liftlog-stats
+  IMAGE_CORE: ghcr.io/${{ github.repository_owner | toLower }}/liftlog-core
+  IMAGE_STATS: ghcr.io/${{ github.repository_owner | toLower }}/liftlog-stats
 
 jobs:
   test:
