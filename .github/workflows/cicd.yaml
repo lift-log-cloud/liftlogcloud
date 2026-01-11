@@ -1,6 +1,7 @@
 name: CI/CD
 
 on:
+  workflow_dispatch:
   push:
     branches: ["master"]
   pull_request:
@@ -8,6 +9,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  NAMESPACE: liftlog
 
 jobs:
   test:
@@ -94,6 +96,7 @@ jobs:
       - name: Set lowercase owner + image names
         shell: bash
         run: |
+          echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
           echo "IMAGE_CORE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/liftlog-core" >> "$GITHUB_ENV"
           echo "IMAGE_STATS=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/liftlog-stats" >> "$GITHUB_ENV"
 
@@ -102,28 +105,62 @@ jobs:
         with:
           version: "v1.29.0"
 
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: "v3.14.0"
-
       - name: Configure kubeconfig
         run: |
           mkdir -p ~/.kube
           echo "${{ secrets.K3S_KUBECONFIG_B64 }}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
 
-      - name: Deploy with Helm (dev)
+      - name: Show cluster info
         run: |
-          helm upgrade --install liftlog ./helm/liftlog \
-            -n liftlog --create-namespace \
-            -f ./helm/liftlog/values-dev.yaml \
-            --set core.image=${{ env.IMAGE_CORE }} \
-            --set core.tag=${{ github.sha }} \
-            --set stats.image=${{ env.IMAGE_STATS }} \
-            --set stats.tag=${{ github.sha }}
+          kubectl cluster-info
+          kubectl get nodes
 
-      - name: Wait for rollout
+      - name: Apply namespace
         run: |
-          kubectl -n liftlog rollout status deploy/core --timeout=120s
-          kubectl -n liftlog rollout status deploy/stats --timeout=120s
+          kubectl apply -f k8s/00-namespace.yaml
+
+      - name: Apply app secrets
+        run: |
+          kubectl -n ${{ env.NAMESPACE }} create secret generic liftlog-secrets \
+            --from-literal=SECRET_KEY="${{ secrets.SECRET_KEY }}" \
+            --from-literal=TIMEZONEDB_API_KEY="${{ secrets.TIMEZONEDB_API_KEY }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Apply GHCR imagePullSecret (optional)
+        if: ${{ secrets.GHCR_USERNAME != '' && secrets.GHCR_TOKEN != '' }}
+        run: |
+          kubectl -n ${{ env.NAMESPACE }} create secret docker-registry ghcr-pull \
+            --docker-server=ghcr.io \
+            --docker-username="${{ secrets.GHCR_USERNAME }}" \
+            --docker-password="${{ secrets.GHCR_TOKEN }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Apply Kubernetes manifests
+        run: |
+          kubectl apply -f k8s/01-config.yaml
+          kubectl apply -f k8s/02-postgres.yaml
+          kubectl apply -f k8s/03-stats.yaml
+          kubectl apply -f k8s/04-core.yaml
+          kubectl apply -f k8s/05-hpa.yaml
+
+      - name: Update images to current commit SHA
+        run: |
+          kubectl -n ${{ env.NAMESPACE }} set image deployment/core core=${{ env.IMAGE_CORE }}:${{ github.sha }} --record
+          kubectl -n ${{ env.NAMESPACE }} set image deployment/stats stats=${{ env.IMAGE_STATS }}:${{ github.sha }} --record
+
+      - name: Restart + wait for rollout
+        run: |
+          kubectl -n ${{ env.NAMESPACE }} rollout restart deployment/core
+          kubectl -n ${{ env.NAMESPACE }} rollout restart deployment/stats
+          kubectl -n ${{ env.NAMESPACE }} rollout status deployment/core --timeout=180s
+          kubectl -n ${{ env.NAMESPACE }} rollout status deployment/stats --timeout=180s
+          kubectl -n ${{ env.NAMESPACE }} get pods -o wide
+
+      - name: Run DB migrations
+        run: |
+          kubectl -n ${{ env.NAMESPACE }} exec deploy/core -- flask db upgrade
+
+      - name: Verify health endpoints
+        run: |
+          kubectl -n ${{ env.NAMESPACE }} get svc
