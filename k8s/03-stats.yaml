@@ -13,6 +13,8 @@ spec:
       labels:
         app: stats
     spec:
+      imagePullSecrets:
+      - name: ghcr-pull
       containers:
       - name: stats
         image: liftlogcloud-stats:latest
