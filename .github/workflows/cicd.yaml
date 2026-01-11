@@ -111,7 +111,7 @@ jobs:
           echo "${{ secrets.K3S_KUBECONFIG_B64 }}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
 
-      - name: Show cluster info
+      - name: Cluster info
         run: |
           kubectl cluster-info
           kubectl get nodes
@@ -125,15 +125,6 @@ jobs:
           kubectl -n ${{ env.NAMESPACE }} create secret generic liftlog-secrets \
             --from-literal=SECRET_KEY="${{ secrets.SECRET_KEY }}" \
             --from-literal=TIMEZONEDB_API_KEY="${{ secrets.TIMEZONEDB_API_KEY }}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Apply GHCR imagePullSecret (optional)
-        if: ${{ secrets.GHCR_USERNAME != '' && secrets.GHCR_TOKEN != '' }}
-        run: |
-          kubectl -n ${{ env.NAMESPACE }} create secret docker-registry ghcr-pull \
-            --docker-server=ghcr.io \
-            --docker-username="${{ secrets.GHCR_USERNAME }}" \
-            --docker-password="${{ secrets.GHCR_TOKEN }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Apply Kubernetes manifests
@@ -156,11 +147,8 @@ jobs:
           kubectl -n ${{ env.NAMESPACE }} rollout status deployment/core --timeout=180s
           kubectl -n ${{ env.NAMESPACE }} rollout status deployment/stats --timeout=180s
           kubectl -n ${{ env.NAMESPACE }} get pods -o wide
+          kubectl -n ${{ env.NAMESPACE }} get svc
 
       - name: Run DB migrations
         run: |
           kubectl -n ${{ env.NAMESPACE }} exec deploy/core -- flask db upgrade
-
-      - name: Verify health endpoints
-        run: |
-          kubectl -n ${{ env.NAMESPACE }} get svc
