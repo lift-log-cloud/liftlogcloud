@@ -12,7 +12,7 @@ spec:
       app: core
   namespaceSelector:
     matchNames:
-      - {{ .Values.namespace }}
+      - {{ .Release.Namespace }}
   endpoints:
   - port: http
     path: /metrics
@@ -31,7 +31,7 @@ spec:
       app: stats
   namespaceSelector:
     matchNames:
-      - {{ .Values.namespace }}
+      - {{ .Release.Namespace }}
   endpoints:
   - port: http
     path: /metrics
