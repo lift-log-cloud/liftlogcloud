@@ -2,14 +2,12 @@ name: CI/CD
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_CORE: ghcr.io/${{ github.repository_owner | toLower }}/liftlog-core
-  IMAGE_STATS: ghcr.io/${{ github.repository_owner | toLower }}/liftlog-stats
 
 jobs:
   test:
@@ -51,6 +49,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set lowercase owner + image names
+        shell: bash
+        run: |
+          echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+          echo "IMAGE_CORE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/liftlog-core" >> "$GITHUB_ENV"
+          echo "IMAGE_STATS=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/liftlog-stats" >> "$GITHUB_ENV"
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -86,6 +91,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set lowercase owner + image names
+        shell: bash
+        run: |
+          echo "IMAGE_CORE=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/liftlog-core" >> "$GITHUB_ENV"
+          echo "IMAGE_STATS=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/liftlog-stats" >> "$GITHUB_ENV"
+
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
         with:
@@ -112,7 +123,6 @@ jobs:
             --set stats.image=${{ env.IMAGE_STATS }} \
             --set stats.tag=${{ github.sha }}
 
-      # wait and verify health
       - name: Wait for rollout
         run: |
           kubectl -n liftlog rollout status deploy/core --timeout=120s
